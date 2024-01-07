@@ -76,8 +76,8 @@ public enum Dependency {
     ADVENTURE_PLATFORM_BUKKIT(
             "me{}lucko",
             "adventure-platform-bukkit",
-            "4.13.0",
-            "Rif/+xdGfRrlhxXYb2+jMFBnwnLQ2pnjAJ/BxWApins=",
+            "4.13.2",
+            "NztKHVIafIr45BwRVi9rc+yFtTjMKWtYxenxCuHYqVA=",
             Relocation.of("adventure", "net{}kyori{}adventure")
     ),
     ADVENTURE_PLATFORM_BUNGEECORD(

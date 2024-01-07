@@ -30,7 +30,6 @@ import me.lucko.luckperms.common.locale.TranslationManager;
 import me.lucko.luckperms.common.sender.Sender;
 import me.lucko.luckperms.common.sender.SenderFactory;
 import me.lucko.luckperms.fabric.mixin.ServerCommandSourceAccessor;
-import me.lucko.luckperms.fabric.model.MixinUser;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import net.luckperms.api.util.Tristate;
@@ -77,7 +76,8 @@ public class FabricSenderFactory extends SenderFactory<LPFabricPlugin, ServerCom
     protected void sendMessage(ServerCommandSource sender, Component message) {
         final Locale locale;
         if (sender.getEntity() instanceof ServerPlayerEntity) {
-            locale = ((MixinUser) sender.getEntity()).getCachedLocale();
+            String language = ((ServerPlayerEntity) sender.getEntity()).getClientOptions().language();
+            locale = language == null ? null : TranslationManager.parseLocale(language);
         } else {
             locale = null;
         }
@@ -117,6 +117,6 @@ public class FabricSenderFactory extends SenderFactory<LPFabricPlugin, ServerCom
     }
 
     public static Text toNativeText(Component component) {
-        return Text.Serializer.fromJson(GsonComponentSerializer.gson().serialize(component));
+        return Text.Serialization.fromJsonTree(GsonComponentSerializer.gson().serializeToTree(component));
     }
 }

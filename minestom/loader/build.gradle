@@ -3,20 +3,22 @@ plugins {
 }
 
 repositories {
+    mavenLocal()
     mavenCentral()
+    maven { url 'https://s01.oss.sonatype.org/content/repositories/snapshots/' }
     maven { url 'https://jitpack.io' }
 }
 
 dependencies {
-    compileOnly 'net.onelitefeather.microtus:Minestom:1.1.1'
+    compileOnly 'net.onelitefeather.microtus:Minestom:1.1.4-SNAPSHOT'
 
     implementation project(':api')
     implementation project(':common:loader-utils')
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 processResources {

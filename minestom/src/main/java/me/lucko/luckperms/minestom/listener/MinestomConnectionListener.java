@@ -36,8 +36,8 @@ import net.kyori.adventure.text.Component;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.GlobalEventHandler;
+import net.minestom.server.event.player.AsyncPlayerConfigurationEvent;
 import net.minestom.server.event.player.AsyncPlayerPreLoginEvent;
-import net.minestom.server.event.player.PlayerLoginEvent;
 
 public class MinestomConnectionListener extends AbstractConnectionListener {
     private final LPMinestomPlugin plugin;
@@ -51,7 +51,7 @@ public class MinestomConnectionListener extends AbstractConnectionListener {
         GlobalEventHandler eventManager = MinecraftServer.getGlobalEventHandler();
 
         eventManager.addListener(AsyncPlayerPreLoginEvent.class, (this::asyncPreLoginHandler));
-        eventManager.addListener(PlayerLoginEvent.class, (this::loginEventHandler));
+        eventManager.addListener(AsyncPlayerConfigurationEvent.class, (this::loginEventHandler));
     }
 
     private void asyncPreLoginHandler(AsyncPlayerPreLoginEvent event) {
@@ -70,7 +70,7 @@ public class MinestomConnectionListener extends AbstractConnectionListener {
         }
     }
 
-    private void loginEventHandler(PlayerLoginEvent event) {
+    private void loginEventHandler(AsyncPlayerConfigurationEvent event) {
         final Player player = event.getPlayer();
 
         if (this.plugin.getConfiguration().get(ConfigKeys.DEBUG_LOGINS)) {

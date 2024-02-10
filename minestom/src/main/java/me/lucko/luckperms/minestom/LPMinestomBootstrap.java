@@ -158,12 +158,12 @@ public class LPMinestomBootstrap implements LuckPermsBootstrap, LoaderBootstrap,
 
     @Override
     public Optional<Player> getPlayer(UUID uniqueId) {
-        return Optional.ofNullable(MinecraftServer.getConnectionManager().getPlayer(uniqueId));
+        return Optional.ofNullable(MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(uniqueId));
     }
 
     @Override
     public Optional<UUID> lookupUniqueId(String username) {
-        Player player = MinecraftServer.getConnectionManager().findPlayer(username);
+        Player player = MinecraftServer.getConnectionManager().findOnlinePlayer(username);
 
         if (player == null) return Optional.empty();
 
@@ -172,7 +172,7 @@ public class LPMinestomBootstrap implements LuckPermsBootstrap, LoaderBootstrap,
 
     @Override
     public Optional<String> lookupUsername(UUID uniqueId) {
-        Player player = MinecraftServer.getConnectionManager().getPlayer(uniqueId);
+        Player player = MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(uniqueId);
 
         if (player == null) return Optional.empty();
 
@@ -200,6 +200,6 @@ public class LPMinestomBootstrap implements LuckPermsBootstrap, LoaderBootstrap,
 
     @Override
     public boolean isPlayerOnline(UUID uniqueId) {
-        return MinecraftServer.getConnectionManager().getPlayer(uniqueId) != null;
+        return MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(uniqueId) != null;
     }
 }

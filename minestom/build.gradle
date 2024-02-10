@@ -1,25 +1,26 @@
 plugins {
-    id 'com.github.johnrengelman.shadow' version '7.1.2'
+    id 'com.github.johnrengelman.shadow' version '8.1.1-SNAPSHOT'
 }
 
 repositories {
+    mavenLocal()
+    maven { url 'https://s01.oss.sonatype.org/content/repositories/snapshots/' }
     mavenCentral()
     maven { url 'https://jitpack.io' }
     maven { url 'https://libraries.minecraft.net' }
     maven { url 'https://repo.spongepowered.org/maven' }
-    mavenLocal()
     maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
 }
 dependencies {
     implementation project(':common')
     compileOnly project(':common:loader-utils')
 
-    compileOnly 'net.onelitefeather.microtus:Minestom:1.1.1'
+    compileOnly 'net.onelitefeather.microtus:Minestom:1.1.4-SNAPSHOT'
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 shadowJar {

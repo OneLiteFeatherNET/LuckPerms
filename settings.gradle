@@ -1,6 +1,9 @@
 pluginManagement {
     repositories {
         maven {
+            url = uri("https://eldonexus.de/repository/maven-public/")
+        }
+        maven {
             name = 'Fabric'
             url = 'https://maven.fabricmc.net/'
         }
@@ -44,4 +47,3 @@ include (
         'minestom',
         'minestom:loader'
 )
-

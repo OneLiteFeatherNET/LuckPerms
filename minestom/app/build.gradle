@@ -53,7 +53,7 @@ javadoc {
     options.charSet = 'UTF-8'
     options.links(
             'https://checkerframework.org/api/',
-            'https://www.javadocs.dev/org.jetbrains/annotations/26.0.2/index.html'
+            'https://www.javadocs.dev/org.jetbrains/annotations/26.0.2/'
     )
     options.addStringOption('Xdoclint:none', '-quiet')
     options.addStringOption('-since', '5.0,5.1,5.2,5.3,5.4,5.5')

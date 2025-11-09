@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.shadow)
 }
+group = 'net.luckperms'
 
 repositories {
     mavenCentral()

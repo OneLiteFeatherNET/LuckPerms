@@ -5,6 +5,7 @@ plugins {
 repositories {
     mavenCentral()
 }
+group = 'net.luckperms'
 dependencies {
     implementation project(':common')
     compileOnly project(':common:loader-utils')

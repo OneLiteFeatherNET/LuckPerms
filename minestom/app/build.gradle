@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.blossom)
     id("java-library")
 }
-
+group = 'net.luckperms'
 sourceCompatibility = 21
 targetCompatibility = 21
 dependencies {

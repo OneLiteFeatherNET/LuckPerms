@@ -34,6 +34,11 @@ jobs:
 
       - name: Run build and tests with Gradle wrapper
         run: ./gradlew test build -PdockerTests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          ONELITEFEATHER_MAVEN_USERNAME: ${{ secrets.ONELITEFEATHER_MAVEN_USERNAME }}
+          ONELITEFEATHER_MAVEN_PASSWORD: ${{ secrets.ONELITEFEATHER_MAVEN_PASSWORD }}
 
       - name: Publish test report
         uses: mikepenz/action-junit-report@v5
@@ -96,9 +101,9 @@ jobs:
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+          registry: ${{ secrets.HARBOR_REGISTRY }}
 
       - name: Determine the LuckPerms version
         run: |
@@ -108,7 +113,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ secrets.HARBOR_REGISTRY }}/luckperms/luckperms-standalone
           flavor: |
             latest=${{ github.ref == 'refs/heads/master' }}
           tags: |

@@ -105,3 +105,95 @@ dependencies {
     compileOnly 'org.yaml:snakeyaml:1.33'
     compileOnly 'net.luckperms:rest-api-java-client:0.1'
 }
+
+
+// Only used occasionally for deployment - not needed for normal builds.
+javadoc {
+    title = 'LuckPerms Minestom Loader (v' + project.ext.apiVersion + ')'
+    options.overview = 'javadoc/overview.html'
+    options.encoding = 'UTF-8'
+    options.charSet = 'UTF-8'
+    options.links(
+            'https://checkerframework.org/api/',
+            'https://www.javadocs.dev/org.jetbrains/annotations/26.0.2/'
+    )
+    options.addStringOption('Xdoclint:none', '-quiet')
+    options.addStringOption('-since', '5.0,5.1,5.2,5.3,5.4,5.5')
+
+    if (JavaVersion.current() > JavaVersion.VERSION_1_8) {
+        options.links.add('https://docs.oracle.com/en/java/javase/21/docs/api/')
+    } else {
+        options.links.add('https://docs.oracle.com/javase/8/docs/api/')
+    }
+}
+
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+publishing {
+    repositories {
+        maven {
+            name = 'OneLiteFeatherRepository'
+
+            def releasesRepoUrl = uri('https://repo.onelitefeather.dev/onelitefeather-releases')
+            def snapshotsRepoUrl = uri('https://repo.onelitefeather.dev/onelitefeather-snapshots')
+
+            url = (version.toString().contains('BETA')
+                    || version.toString().contains('ALPHA')
+                    || version.toString().contains('SNAPSHOT')) ? snapshotsRepoUrl : releasesRepoUrl
+
+            credentials(PasswordCredentials) {
+                username = System.getenv('ONELITEFEATHER_MAVEN_USERNAME')
+                password = System.getenv('ONELITEFEATHER_MAVEN_PASSWORD')
+            }
+
+            authentication {
+                basic(BasicAuthentication)
+            }
+        }
+    }
+
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'common'
+
+            from components.java
+
+            pom {
+                name = 'LuckPerms Common'
+                description = 'A permissions manager for Minecraft servers.'
+                url = 'https://luckperms.net'
+
+                licenses {
+                    license {
+                        name = 'MIT'
+                        url = 'https://opensource.org/licenses/MIT'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = 'lucko'
+                        name = 'Luck'
+                        url = 'https://lucko.me'
+                        email = 'git@lucko.me'
+                    }
+                }
+
+                scm {
+                    connection = 'scm:git:https://github.com/OneLiteFeatherNET/LuckPerms.git'
+                    developerConnection = 'scm:git:git@github.com:OneLiteFeatherNET/LuckPerms.git'
+                    url = 'https://github.com/OneLiteFeatherNET/LuckPerms'
+                }
+
+                issueManagement {
+                    system = 'GitHub'
+                    url = 'https://github.com/OneLiteFeatherNET/LuckPerms/issues'
+                }
+            }
+        }
+    }
+}
+

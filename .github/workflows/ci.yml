@@ -33,12 +33,29 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Run build and tests with Gradle wrapper
-        run: ./gradlew test build -PdockerTests
+        run: ./gradlew test build publish cyclonedxBom -PdockerTests
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           ONELITEFEATHER_MAVEN_USERNAME: ${{ secrets.ONELITEFEATHER_MAVEN_USERNAME }}
           ONELITEFEATHER_MAVEN_PASSWORD: ${{ secrets.ONELITEFEATHER_MAVEN_PASSWORD }}
+      - name: Strip leading v from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - run: |
+          echo "Version: $VERSION"
+      - name: Upload BOM to Dependency-Track
+        if: steps.get_version_env.outputs.VERSION != ''
+        uses: DependencyTrack/gh-upload-sbom@v3
+        with:
+          serverhostname: ${{ secrets.DEPENDENCYTRACK_HOSTNAME }}
+          apikey: ${{ secrets.DEPENDENCYTRACK_APIKEY }}
+          projectname: "LuckPerms"
+          projectversion: ${{ env.VERSION }}
+          projecttags: ''
+          bomfilename: "build/reports/cyclonedx/bom.xml"
+          autocreate: true
+          parent: 'd816150f-9639-4993-8949-eae5ffc25de2'
 
       - name: Publish test report
         uses: mikepenz/action-junit-report@v5

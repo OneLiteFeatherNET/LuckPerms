@@ -2,7 +2,7 @@ plugins {
     id("java-library")
     id("jacoco")
 }
-
+group = 'net.luckperms'
 test {
     useJUnitPlatform {
         if (!project.hasProperty('dockerTests')) {

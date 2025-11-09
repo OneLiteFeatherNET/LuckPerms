@@ -1,5 +1,5 @@
 // nothing special to do here (yet)!
-
+group = 'net.luckperms'
 // Only used occasionally for deployment - not needed for normal builds.
 javadoc {
     title = 'LuckPerms Minestom Loader (v' + project.ext.apiVersion + ')'

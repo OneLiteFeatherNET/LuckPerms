@@ -11,7 +11,7 @@ dependencies {
     compileOnly project(':common:loader-utils')
     compileOnly project(':minestom:app')
 
-    compileOnly 'net.minestom:minestom:2025.08.29-1.21.8'
+    compileOnly 'net.minestom:minestom:2026.05.17-1.21.11'
 }
 
 java {

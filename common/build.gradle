@@ -3,7 +3,7 @@ plugins {
     id("jacoco")
     alias(libs.plugins.blossom)
 }
-group = 'net.luckperms'
+group = 'me.lucko.luckperms'
 test {
     useJUnitPlatform {
         if (!project.hasProperty('dockerTests')) {
@@ -168,6 +168,7 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             artifactId = 'common'
+            groupId = 'net.luckperms'
 
             from components.java
 

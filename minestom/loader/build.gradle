@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.shadow)
 }
-group = 'net.luckperms'
+group = 'me.lucko.luckperms'
 
 repositories {
     mavenCentral()
@@ -94,6 +94,7 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             artifactId = 'minestom-loader'
+            groupId = 'net.luckperms'
 
             artifact(tasks.shadowJar) {
                 classifier = null

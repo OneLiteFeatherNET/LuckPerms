@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.blossom)
     id("java-library")
 }
-group = 'net.luckperms'
+group = 'me.lucko.luckperms'
 
 java {
     toolchain {
@@ -110,6 +110,7 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             artifactId = 'minestom-app'
+            groupId = 'net.luckperms'
 
             from components.java
 

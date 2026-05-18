@@ -1,7 +1,8 @@
 group = 'net.luckperms'
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+tasks.withType(JavaCompile).configureEach {
+    options.release = 8
+}
 
 jar {
     manifest {

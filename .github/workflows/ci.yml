@@ -28,15 +28,13 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: |
-            25
-            21
+          java-version: '25'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
       - name: Run build and tests with Gradle wrapper
-        run: ./gradlew test build publish cyclonedxBom -PdockerTests -Dorg.gradle.java.installations.fromEnv=JAVA_HOME_25_X64
+        run: ./gradlew test build publish cyclonedxBom -PdockerTests
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,6 +1,7 @@
 plugins {
     id("java-library")
     id("jacoco")
+    alias(libs.plugins.blossom)
 }
 group = 'net.luckperms'
 test {
@@ -15,13 +16,23 @@ jacocoTestReport {
     dependsOn test
 }
 
+sourceSets {
+    main {
+        blossom {
+            javaSources {
+                property 'version', project.ext.fullVersion
+            }
+        }
+    }
+}
+
 dependencies {
     testImplementation 'org.slf4j:slf4j-simple:1.7.36'
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.13.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
-    testImplementation 'org.testcontainers:junit-jupiter:1.21.1'
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter:2.0.2'
     testImplementation 'org.mockito:mockito-core:5.18.0'
     testImplementation 'org.mockito:mockito-junit-jupiter:5.18.0'
 
@@ -37,7 +48,6 @@ dependencies {
 
     compileOnly project(':common:loader-utils')
 
-    compileOnly 'com.mojang:brigadier:1.0.18'
     compileOnly 'org.slf4j:slf4j-api:1.7.30'
     compileOnly 'org.apache.logging.log4j:log4j-api:2.14.0'
 

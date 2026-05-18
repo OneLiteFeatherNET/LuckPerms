@@ -29,6 +29,7 @@ import me.lucko.luckperms.common.actionlog.LogDispatcher;
 import me.lucko.luckperms.common.api.ApiRegistrationUtil;
 import me.lucko.luckperms.common.api.LuckPermsApiProvider;
 import me.lucko.luckperms.common.calculator.CalculatorFactory;
+import me.lucko.luckperms.common.command.access.CommandPermission;
 import me.lucko.luckperms.common.config.ConfigKeys;
 import me.lucko.luckperms.common.config.LuckPermsConfiguration;
 import me.lucko.luckperms.common.config.generic.adapter.ConfigurationAdapter;
@@ -40,6 +41,7 @@ import me.lucko.luckperms.common.context.calculator.ConfigurationContextCalculat
 import me.lucko.luckperms.common.dependencies.Dependency;
 import me.lucko.luckperms.common.dependencies.DependencyManager;
 import me.lucko.luckperms.common.dependencies.DependencyManagerImpl;
+import me.lucko.luckperms.common.dependencies.DependencyRepository;
 import me.lucko.luckperms.common.event.AbstractEventBus;
 import me.lucko.luckperms.common.event.EventDispatcher;
 import me.lucko.luckperms.common.event.gen.GeneratedEventClass;
@@ -131,6 +133,10 @@ public abstract class AbstractLuckPermsPlugin implements LuckPermsPlugin {
 
         // load some utilities early
         this.permissionRegistry = new AsyncPermissionRegistry(getBootstrap().getScheduler());
+        for (CommandPermission permission : CommandPermission.values()) {
+            this.permissionRegistry.insert(permission.getPermission());
+        }
+
         this.verboseHandler = new VerboseHandler(getBootstrap().getScheduler());
 
         // load configuration
@@ -166,8 +172,7 @@ public abstract class AbstractLuckPermsPlugin implements LuckPermsPlugin {
         );
         this.bytesocks = new BytesocksClient(
                 this.httpClient,
-                getConfiguration().get(ConfigKeys.BYTESOCKS_HOST),
-                getConfiguration().get(ConfigKeys.BYTESOCKS_USE_TLS),
+                getConfiguration().get(ConfigKeys.BYTESOCKS_URL),
                 "luckperms/editor"
         );
         this.webEditorStore = new WebEditorStore(this);
@@ -333,7 +338,7 @@ public abstract class AbstractLuckPermsPlugin implements LuckPermsPlugin {
     // hooks called during load
 
     protected DependencyManager createDependencyManager() {
-        return new DependencyManagerImpl(this);
+        return new DependencyManagerImpl(this, DependencyRepository.REMOTE_MAVEN_REPOSITORIES);
     }
 
     protected Set<Dependency> getGlobalDependencies() {

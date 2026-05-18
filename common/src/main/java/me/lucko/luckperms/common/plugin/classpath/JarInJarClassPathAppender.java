@@ -41,6 +41,10 @@ public class JarInJarClassPathAppender implements ClassPathAppender {
         this.classLoader = (JarInJarClassLoader) classLoader;
     }
 
+    public JarInJarClassLoader getClassLoader() {
+        return this.classLoader;
+    }
+
     @Override
     public void addJarToClasspath(Path file) {
         try {

@@ -37,7 +37,7 @@ public class DependencyChecksumTest {
     @ParameterizedTest
     @EnumSource
     public void checksumMatches(Dependency dependency) throws DependencyDownloadException {
-        for (DependencyRepository repo : DependencyRepository.values()) {
+        for (DependencyRepository repo : DependencyRepository.REMOTE_MAVEN_REPOSITORIES) {
             byte[] hash = Dependency.createDigest().digest(repo.downloadRaw(dependency));
             assertTrue(dependency.checksumMatches(hash), "Dependency " + dependency.name() + " has hash " +  Base64.getEncoder().encodeToString(hash));
         }

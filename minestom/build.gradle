@@ -20,6 +20,10 @@ java {
     }
 }
 
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+}
+
 // Only used occasionally for deployment - not needed for normal builds.
 javadoc {
     title = 'LuckPerms Minestom (v' + project.ext.apiVersion + ')'

@@ -21,6 +21,10 @@ java {
     }
 }
 
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+}
+
 processResources {
     filesMatching("extension.json") {
         expand 'pluginVersion': project.ext.fullVersion

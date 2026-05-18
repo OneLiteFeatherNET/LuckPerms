@@ -12,6 +12,7 @@ dependencies {
     compileOnly project(':minestom:app')
 
     compileOnly 'net.minestom:minestom:2026.05.17-1.21.11'
+    compileOnly 'org.slf4j:slf4j-api:2.0.17'
 }
 
 java {

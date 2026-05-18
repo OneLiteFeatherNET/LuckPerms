@@ -3,8 +3,13 @@ plugins {
     id("java-library")
 }
 group = 'net.luckperms'
-sourceCompatibility = 21
-targetCompatibility = 21
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
 dependencies {
     implementation project(':api')
 

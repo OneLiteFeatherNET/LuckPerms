@@ -2,9 +2,18 @@ plugins {
     alias(libs.plugins.blossom)
     id("java-library")
 }
-group = 'net.luckperms'
-sourceCompatibility = 21
-targetCompatibility = 21
+group = 'me.lucko.luckperms'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+}
+
 dependencies {
     implementation project(':api')
 
@@ -40,9 +49,14 @@ dependencies {
     }
 }
 
-blossom {
-    replaceTokenIn('src/main/java/me/lucko/luckperms/minestom/app/LuckPermsApplication.java')
-    replaceToken '@version@', project.ext.fullVersion
+sourceSets {
+    main {
+        blossom {
+            javaSources {
+                property 'version', project.ext.fullVersion
+            }
+        }
+    }
 }
 
 // Only used occasionally for deployment - not needed for normal builds.
@@ -96,6 +110,7 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             artifactId = 'minestom-app'
+            groupId = 'net.luckperms'
 
             from components.java
 

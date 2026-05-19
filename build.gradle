@@ -1,26 +1,23 @@
 plugins {
     alias(libs.plugins.licenser) apply false
     id 'org.cyclonedx.bom' version '3.0.1'
+    alias(libs.plugins.loom) apply false
 }
 
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 
-defaultTasks 'licenseFormat', 'build'
-
 subprojects {
     apply plugin: 'java'
     apply plugin: 'maven-publish'
-    apply plugin: 'org.cadixdev.licenser'
+    apply plugin: 'dev.yumi.gradle.licenser'
 
     group = 'me.lucko.luckperms'
     version = '5.6-SNAPSHOT'
 
-    sourceCompatibility = 11
-    targetCompatibility = 11
-
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
+        options.release = 11
     }
 
     tasks.withType(Test).configureEach {
@@ -38,18 +35,11 @@ subprojects {
     }
 
     def determinePatchVersion = {
-        // get the name of the last tag
-        def tagInfo = new ByteArrayOutputStream()
-        exec {
+        def tagInfo = providers.exec {
             commandLine 'git', 'describe', '--tags'
-            standardOutput = tagInfo
-        }
-        tagInfo = tagInfo.toString()
+        }.standardOutput.asText.get().trim()
 
-        if (!tagInfo.contains('-')) {
-            return 0
-        }
-        return tagInfo.split("-")[1]
+        return tagInfo.contains('-') ? tagInfo.split('-')[1] : 0
     }
 
     project.ext.majorVersion = '5'
@@ -59,9 +49,8 @@ subprojects {
     project.ext.fullVersion = project.ext.apiVersion + '.' + project.ext.patchVersion
 
     license {
-        header = rootProject.file('HEADER.txt')
-        include '**/*.java'
-        newLine = true
+        rule(rootProject.file("HEADER.txt"))
+        exclude '*.xml'
     }
 
     repositories {
@@ -78,5 +67,66 @@ subprojects {
         mavenCentral()
         maven { url 'https://repo.lucko.me/' }
         maven { url 'https://libraries.minecraft.net/' }
+    }
+}
+
+// Publish every remaining LuckPerms platform/loader module to the
+// OneLiteFeather repository as net.luckperms:<dashed-path>. The six modules
+// that already define their own publication (api, common, loader-utils,
+// minestom, minestom-app, minestom-loader) are intentionally excluded.
+def olfExtraPublishPaths = [
+        ':bukkit', ':bukkit:loader', ':bukkit-legacy', ':bukkit-legacy:loader',
+        ':bungee', ':bungee:loader', ':velocity',
+        ':fabric', ':forge', ':forge:loader', ':neoforge', ':neoforge:loader',
+        ':sponge', ':sponge:loader', ':sponge:sponge-service', ':sponge:sponge-service-proxy',
+        ':nukkit', ':nukkit:loader',
+        ':standalone', ':standalone:app', ':standalone:loader',
+        ':hytale', ':hytale:loader', ':hytale:loader-with-deps',
+        ':common:minecraft'
+] as Set
+
+subprojects {
+    afterEvaluate { proj ->
+        if (!olfExtraPublishPaths.contains(proj.path)) {
+            return
+        }
+
+        def shadowTask = proj.tasks.findByName('shadowJar')
+        def hasJavaComponent = proj.components.findByName('java') != null
+        if (shadowTask == null && !hasJavaComponent) {
+            return
+        }
+
+        proj.publishing {
+            publications {
+                if (findByName('mavenJava') == null && findByName('maven') == null && findByName('olf') == null) {
+                    olf(MavenPublication) {
+                        groupId = 'net.luckperms'
+                        artifactId = proj.path.substring(1).replace(':', '-')
+                        version = proj.version
+                        if (shadowTask != null) {
+                            artifact(shadowTask)
+                        } else {
+                            from proj.components.java
+                        }
+                    }
+                }
+            }
+            repositories {
+                maven {
+                    name = 'OneLiteFeatherRepository'
+                    def snapshotsRepoUrl = uri('https://repo.onelitefeather.dev/onelitefeather-snapshots')
+                    def releasesRepoUrl = uri('https://repo.onelitefeather.dev/onelitefeather-releases')
+                    url = proj.version.toString().contains('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+                    credentials(PasswordCredentials) {
+                        username = System.getenv('ONELITEFEATHER_MAVEN_USERNAME')
+                        password = System.getenv('ONELITEFEATHER_MAVEN_PASSWORD')
+                    }
+                    authentication {
+                        basic(BasicAuthentication)
+                    }
+                }
+            }
+        }
     }
 }

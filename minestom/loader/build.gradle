@@ -1,14 +1,14 @@
 plugins {
     alias(libs.plugins.shadow)
 }
-group = 'net.luckperms'
+group = 'me.lucko.luckperms'
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    compileOnly 'net.minestom:minestom:2025.08.29-1.21.8'
+    compileOnly 'net.minestom:minestom:2026.05.17-1.21.11'
 
     implementation project(':api')
     implementation project(':common:loader-utils')
@@ -16,8 +16,13 @@ dependencies {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
 }
 
 processResources {
@@ -89,6 +94,7 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             artifactId = 'minestom-loader'
+            groupId = 'net.luckperms'
 
             artifact(tasks.shadowJar) {
                 classifier = null

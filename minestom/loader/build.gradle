@@ -32,6 +32,14 @@ shadowJar {
     from {
         project(':minestom').tasks.shadowJar.archiveFile
     }
+
+    // Minestom ships Adventure itself, so the loader must not bundle its own
+    // copy - it would shadow the host's (newer) version and break it. The
+    // platform code resolves Adventure from the host classpath instead.
+    exclude 'net/kyori/adventure/**'
+    exclude 'net/kyori/examination/**'
+    exclude 'net/kyori/option/**'
+    exclude 'net/kyori/ansi/**'
 }
 
 artifacts {

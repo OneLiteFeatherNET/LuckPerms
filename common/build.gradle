@@ -4,6 +4,13 @@ plugins {
     alias(libs.plugins.blossom)
 }
 group = 'net.luckperms'
+
+// Adventure 5 requires Java 21+, so this fork's common targets 21 (we only
+// ship the Minestom platform, which runs on Java 21+).
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+}
+
 test {
     useJUnitPlatform {
         if (!project.hasProperty('dockerTests')) {
@@ -51,29 +58,29 @@ dependencies {
     compileOnly 'org.slf4j:slf4j-api:1.7.30'
     compileOnly 'org.apache.logging.log4j:log4j-api:2.14.0'
 
-    api('net.kyori:adventure-api:4.21.0') {
+    api('net.kyori:adventure-api:5.1.1') {
         exclude(module: 'adventure-bom')
         exclude(module: 'checker-qual')
         exclude(module: 'annotations')
     }
 
-    api('net.kyori:adventure-text-serializer-gson:4.21.0') {
+    api('net.kyori:adventure-text-serializer-gson:5.1.1') {
         exclude(module: 'adventure-bom')
         exclude(module: 'adventure-api')
         exclude(module: 'gson')
     }
 
-    api('net.kyori:adventure-text-serializer-legacy:4.21.0') {
+    api('net.kyori:adventure-text-serializer-legacy:5.1.1') {
         exclude(module: 'adventure-bom')
         exclude(module: 'adventure-api')
     }
 
-    api('net.kyori:adventure-text-serializer-plain:4.21.0') {
+    api('net.kyori:adventure-text-serializer-plain:5.1.1') {
         exclude(module: 'adventure-bom')
         exclude(module: 'adventure-api')
     }
 
-    api("net.kyori:adventure-text-minimessage:4.21.0") {
+    api("net.kyori:adventure-text-minimessage:5.1.1") {
         exclude(module: 'adventure-bom')
         exclude(module: 'adventure-api')
     }

@@ -11,7 +11,9 @@ dependencies {
     compileOnly project(':common:loader-utils')
     compileOnly project(':minestom:app')
 
-    compileOnly 'net.minestom:minestom:2025.08.29-1.21.8'
+    compileOnly 'net.minestom:minestom:2026.05.17-1.21.11'
+    // Minestom no longer exposes SLF4J transitively; it is provided by the host.
+    compileOnly 'org.slf4j:slf4j-api:2.0.17'
 }
 
 shadowJar {
@@ -53,7 +55,7 @@ artifacts {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.release = 21
+    options.release = 25
 }
 
 // Only used occasionally for deployment - not needed for normal builds.

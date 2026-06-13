@@ -127,13 +127,17 @@ public interface Message {
                 .append(text("v" + bootstrap.getVersion(), AQUA))
                 .build();
 
-        Component infoLine2 = text()
+        String platformName = bootstrap.getType().getFriendlyName();
+        String serverBrand = bootstrap.getServerBrand();
+
+        TextComponent.Builder infoLine2 = text()
                 .color(DARK_GRAY)
                 .append(text("Running on "))
-                .append(text(bootstrap.getType().getFriendlyName()))
-                .append(text(" - "))
-                .append(text(bootstrap.getServerBrand()))
-                .build();
+                .append(text(platformName));
+
+        if (!platformName.equals(serverBrand)) {
+            infoLine2.append(text(" - ")).append(text(serverBrand));
+        }
 
         // "        __    "
         // "  |    |__)   "
@@ -453,6 +457,22 @@ public interface Message {
             .append(text(": "))
             .append(text(processor, DARK_GREEN))
             .build();
+
+    Args0 VERBOSE_NOTIFICATION_RATE_LIMITED = () -> prefixed(text()
+            // "&3VB &3&l> &cNotification rate limit exceeded. Some events are not being shown. Use &7/lp verbose upload &cto see the full output."
+            .append(translatable("luckperms.logs.verbose-prefix", DARK_AQUA))
+            .append(space())
+            .append(text('>', DARK_AQUA, BOLD))
+            .append(space())
+            .append(translatable()
+                    .key("luckperms.logs.verbose.rate-limit-exceeded")
+                    .color(RED)
+                    .args(text("/lp verbose upload", GRAY)
+                            .clickEvent(ClickEvent.runCommand("/lp verbose upload"))
+                    )
+                    .append(FULL_STOP)
+            )
+    );
 
     Args1<String> EXPORT_LOG = msg -> prefixed(text()
             // "&3EXPORT &3&l> &f{}"

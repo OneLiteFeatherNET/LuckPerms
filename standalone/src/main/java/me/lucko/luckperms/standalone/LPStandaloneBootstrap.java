@@ -32,6 +32,9 @@ import me.lucko.luckperms.common.plugin.classpath.ClassPathAppender;
 import me.lucko.luckperms.common.plugin.classpath.JarInJarClassPathAppender;
 import me.lucko.luckperms.common.plugin.logging.Log4jPluginLogger;
 import me.lucko.luckperms.common.plugin.logging.PluginLogger;
+import me.lucko.luckperms.common.plugin.scheduler.JavaSchedulerAdapter;
+import me.lucko.luckperms.common.plugin.scheduler.SchedulerAdapter;
+import me.lucko.luckperms.common.util.BuildInfo;
 import me.lucko.luckperms.standalone.app.LuckPermsApplication;
 import net.luckperms.api.platform.Platform;
 
@@ -51,7 +54,7 @@ public class LPStandaloneBootstrap implements LuckPermsBootstrap, LoaderBootstra
     private final LuckPermsApplication loader;
 
     private final PluginLogger logger;
-    private final StandaloneSchedulerAdapter schedulerAdapter;
+    private final SchedulerAdapter schedulerAdapter;
     private final ClassPathAppender classPathAppender;
     private final LPStandalonePlugin plugin;
 
@@ -63,7 +66,7 @@ public class LPStandaloneBootstrap implements LuckPermsBootstrap, LoaderBootstra
         this.loader = loader;
 
         this.logger = new Log4jPluginLogger(LuckPermsApplication.LOGGER);
-        this.schedulerAdapter = new StandaloneSchedulerAdapter(this);
+        this.schedulerAdapter = new JavaSchedulerAdapter(this);
         this.classPathAppender = new JarInJarClassPathAppender(getClass().getClassLoader());
         this.plugin = new LPStandalonePlugin(this);
     }
@@ -73,7 +76,7 @@ public class LPStandaloneBootstrap implements LuckPermsBootstrap, LoaderBootstra
         this.loader = loader;
 
         this.logger = new Log4jPluginLogger(LuckPermsApplication.LOGGER);
-        this.schedulerAdapter = new StandaloneSchedulerAdapter(this);
+        this.schedulerAdapter = new JavaSchedulerAdapter(this);
         this.classPathAppender = classPathAppender;
         this.plugin = createTestPlugin();
     }
@@ -96,7 +99,7 @@ public class LPStandaloneBootstrap implements LuckPermsBootstrap, LoaderBootstra
     }
 
     @Override
-    public StandaloneSchedulerAdapter getScheduler() {
+    public SchedulerAdapter getScheduler() {
         return this.schedulerAdapter;
     }
 
@@ -145,7 +148,7 @@ public class LPStandaloneBootstrap implements LuckPermsBootstrap, LoaderBootstra
 
     @Override
     public String getVersion() {
-        return this.loader.getVersion();
+        return BuildInfo.VERSION;
     }
 
     @Override

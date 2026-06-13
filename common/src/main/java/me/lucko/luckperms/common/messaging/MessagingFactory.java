@@ -170,15 +170,19 @@ public class MessagingFactory<P extends LuckPermsPlugin> {
             String address = configuration.get(ConfigKeys.NATS_ADDRESS);
             String username = configuration.get(ConfigKeys.NATS_USERNAME);
             String password = configuration.get(ConfigKeys.NATS_PASSWORD);
+            String token = configuration.get(ConfigKeys.NATS_TOKEN);
             if (password.isEmpty()) {
                 password = null;
             }
             if (username.isEmpty()) {
                 username = null;
             }
+            if (token.isEmpty()) {
+                token = null;
+            }
             boolean ssl = configuration.get(ConfigKeys.NATS_SSL);
 
-            natsMessenger.init(address, username, password, ssl);
+            natsMessenger.init(address, username, password, token, ssl);
             return natsMessenger;
         }
     }
@@ -207,7 +211,21 @@ public class MessagingFactory<P extends LuckPermsPlugin> {
             }
             boolean ssl = config.get(ConfigKeys.REDIS_SSL);
 
-            if (!addresses.isEmpty()) {
+            boolean sentinelEnabled = config.get(ConfigKeys.REDIS_SENTINEL_ENABLED);
+            if (sentinelEnabled) {
+                // redis sentinel
+                String masterName = config.get(ConfigKeys.REDIS_SENTINEL_MASTER);
+                List<String> sentinelAddresses = config.get(ConfigKeys.REDIS_SENTINEL_ADDRESSES);
+                String sentinelUsername = config.get(ConfigKeys.REDIS_SENTINEL_USERNAME);
+                String sentinelPassword = config.get(ConfigKeys.REDIS_SENTINEL_PASSWORD);
+                if (sentinelUsername.isEmpty()) {
+                    sentinelUsername = null;
+                }
+                if (sentinelPassword.isEmpty()) {
+                    sentinelPassword = null;
+                }
+                redis.init(masterName, sentinelAddresses, username, password, ssl, sentinelUsername, sentinelPassword);
+            } else if (!addresses.isEmpty()) {
                 // redis cluster
                 addresses = new ArrayList<>(addresses);
                 if (address != null) {

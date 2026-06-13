@@ -13,7 +13,7 @@ pluginManagement {
 }
 
 plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention") version("0.8.0")
+    id("org.gradle.toolchains.foojay-resolver-convention") version("1.0.0")
 }
 
 rootProject.name = 'luckperms'
@@ -21,6 +21,8 @@ include (
         'api',
         'common',
         'common:loader-utils',
+        'common:minecraft',
+        'common:placeholders',
         'bukkit',
         'bukkit:loader',
         'bukkit-legacy',
@@ -34,6 +36,9 @@ include (
         'forge:loader',
         'nukkit',
         'nukkit:loader',
+        'hytale',
+        'hytale:loader',
+        'hytale:loader-with-deps',
         'sponge',
         'sponge:loader',
         'sponge:sponge-service',

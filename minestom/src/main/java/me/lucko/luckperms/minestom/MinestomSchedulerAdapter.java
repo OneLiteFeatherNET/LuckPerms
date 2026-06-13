@@ -26,20 +26,22 @@
 package me.lucko.luckperms.minestom;
 
 import me.lucko.luckperms.common.plugin.bootstrap.LuckPermsBootstrap;
-import me.lucko.luckperms.common.plugin.scheduler.AbstractJavaScheduler;
+import me.lucko.luckperms.common.plugin.scheduler.JavaSchedulerAdapter;
+import me.lucko.luckperms.common.plugin.scheduler.SchedulerAdapter;
+import me.lucko.luckperms.common.sender.Sender;
 import net.minestom.server.MinecraftServer;
 
 import java.util.concurrent.Executor;
 
-public class MinestomSchedulerAdapter extends AbstractJavaScheduler {
-    private final Executor executor = r -> MinecraftServer.getSchedulerManager().buildTask(r).schedule();
+public class MinestomSchedulerAdapter extends JavaSchedulerAdapter implements SchedulerAdapter {
+    private final Executor syncExecutor = r -> MinecraftServer.getSchedulerManager().buildTask(r).schedule();
 
     public MinestomSchedulerAdapter(LuckPermsBootstrap bootstrap) {
         super(bootstrap);
     }
 
     @Override
-    public Executor sync() {
-        return executor;
+    public void executeSync(Sender ctx, Runnable task) {
+        this.syncExecutor.execute(task);
     }
 }

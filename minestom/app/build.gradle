@@ -3,8 +3,11 @@ plugins {
     id("java-library")
 }
 group = 'net.luckperms'
-sourceCompatibility = 21
-targetCompatibility = 21
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+}
+
 dependencies {
     implementation project(':api')
 
@@ -40,9 +43,14 @@ dependencies {
     }
 }
 
-blossom {
-    replaceTokenIn('src/main/java/me/lucko/luckperms/minestom/app/LuckPermsApplication.java')
-    replaceToken '@version@', project.ext.fullVersion
+sourceSets {
+    main {
+        blossom {
+            javaSources {
+                property 'version', project.ext.fullVersion
+            }
+        }
+    }
 }
 
 // Only used occasionally for deployment - not needed for normal builds.

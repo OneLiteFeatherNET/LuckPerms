@@ -17,36 +17,15 @@ plugins {
 }
 
 rootProject.name = 'luckperms'
+
+// This fork ships only the Minestom platform (LuckPerms on Adventure 5 /
+// Minestom 2026). The other platform modules stay in the tree but are not part
+// of the build - they remain on Adventure 4 and would not compile against the
+// Adventure-5 common.
 include (
         'api',
         'common',
         'common:loader-utils',
-        'common:minecraft',
-        'common:placeholders',
-        'bukkit',
-        'bukkit:loader',
-        'bukkit-legacy',
-        'bukkit-legacy:loader',
-        'bungee',
-        'bungee:loader',
-        'fabric',
-        'neoforge',
-        'neoforge:loader',
-        'forge',
-        'forge:loader',
-        'nukkit',
-        'nukkit:loader',
-        'hytale',
-        'hytale:loader',
-        'hytale:loader-with-deps',
-        'sponge',
-        'sponge:loader',
-        'sponge:sponge-service',
-        'sponge:sponge-service-proxy',
-        'velocity',
-        'standalone',
-        'standalone:loader',
-        'standalone:app',
         'minestom',
         'minestom:loader',
         'minestom:app'

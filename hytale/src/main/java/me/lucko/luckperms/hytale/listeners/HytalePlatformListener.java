@@ -29,7 +29,6 @@ import com.hypixel.hytale.event.EventRegistry;
 import com.hypixel.hytale.server.core.command.system.AbstractCommand;
 import com.hypixel.hytale.server.core.command.system.CommandManager;
 import com.hypixel.hytale.server.core.event.events.BootEvent;
-import com.hypixel.hytale.server.core.permissions.PermissionsModule;
 import me.lucko.luckperms.hytale.LPHytalePlugin;
 
 import java.util.Collection;
@@ -47,8 +46,7 @@ public class HytalePlatformListener {
 
     public void onBoot(BootEvent e) {
         insertCommandPermissionsIntoRegistry();
-        insertRegisteredPermissionsIntoRegistry();
-        this.plugin.getVirtualGroupsCache().refresh();
+        this.plugin.getVirtualGroupsMap().refresh();
     }
 
     public void insertCommandPermissionsIntoRegistry() {
@@ -66,12 +64,6 @@ public class HytalePlatformListener {
             if (!subCommands.isEmpty()) {
                 insertCommandPermissionsIntoRegistry(subCommands);
             }
-        }
-    }
-
-    public void insertRegisteredPermissionsIntoRegistry() {
-        for (String permission : PermissionsModule.getRegisteredPermissions().keySet()) {
-            this.plugin.getPermissionRegistry().insert(permission);
         }
     }
 

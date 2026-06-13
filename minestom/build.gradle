@@ -5,31 +5,30 @@ plugins {
 repositories {
     mavenCentral()
 }
-group = 'net.luckperms'
+group = 'me.lucko.luckperms'
 dependencies {
     implementation project(':common')
     compileOnly project(':common:loader-utils')
     compileOnly project(':minestom:app')
 
     compileOnly 'net.minestom:minestom:2026.05.17-1.21.11'
-    // Minestom no longer exposes SLF4J transitively; it is provided by the host.
     compileOnly 'org.slf4j:slf4j-api:2.0.17'
 }
 
 shadowJar {
+    // Name the platform jar with a non-archive extension so the loader embeds
+    // it as an isolated nested JarInJar instead of exploding it inline.
     archiveFileName = 'luckperms-minestom.jarinjar'
 
     dependencies {
-        // :common and :api are published under net.luckperms in this fork, the
-        // platform sources under me.lucko.luckperms - include both so the whole
-        // LuckPerms implementation ends up inside the jarinjar.
+        // Bundle only the LuckPerms implementation into the jarinjar.
         include(dependency('net.luckperms:.*'))
         include(dependency('me.lucko.luckperms:.*'))
     }
 
-    // Minestom exposes Adventure natively, so it must stay unrelocated and be
-    // shared with the host platform (like the standalone build). Every other
-    // bundled library is relocated to avoid clashing with the host classpath.
+    // Minestom exposes Adventure natively (v5), so it stays unrelocated and is
+    // shared with the host. Every other bundled library is relocated to avoid
+    // clashing with the host classpath.
     relocate 'net.kyori.event', 'me.lucko.luckperms.lib.eventbus'
     relocate 'com.github.benmanes.caffeine', 'me.lucko.luckperms.lib.caffeine'
     relocate 'okio', 'me.lucko.luckperms.lib.okio'
@@ -52,6 +51,12 @@ shadowJar {
 
 artifacts {
     archives shadowJar
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -109,6 +114,7 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             artifactId = 'minestom'
+            groupId = 'net.luckperms'
 
             from components.java
 

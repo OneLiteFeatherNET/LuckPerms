@@ -1,4 +1,4 @@
-group = 'net.luckperms'
+group = 'me.lucko.luckperms'
 
 tasks.withType(JavaCompile).configureEach {
     options.release = 8
@@ -66,6 +66,7 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             artifactId = 'api'
+            groupId = 'net.luckperms'
 
             from components.java
 

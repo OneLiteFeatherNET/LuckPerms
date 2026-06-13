@@ -10,6 +10,10 @@ on:
     branches:
       - 'master'
 
+concurrency:
+  group: ci-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   build-gradle:
     runs-on: ubuntu-latest

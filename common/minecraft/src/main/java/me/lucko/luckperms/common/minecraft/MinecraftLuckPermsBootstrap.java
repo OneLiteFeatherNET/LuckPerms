@@ -26,7 +26,6 @@
 package me.lucko.luckperms.common.minecraft;
 
 import me.lucko.luckperms.common.plugin.bootstrap.LuckPermsBootstrap;
-import me.lucko.luckperms.common.plugin.scheduler.SchedulerAdapter;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.NameAndId;
@@ -42,9 +41,6 @@ import java.util.UUID;
 public abstract class MinecraftLuckPermsBootstrap implements LuckPermsBootstrap {
 
     public abstract Optional<MinecraftServer> getServer();
-
-    @Override
-    public abstract MinecraftSchedulerAdapter getScheduler();
 
     @Override
     public final Optional<ServerPlayer> getPlayer(UUID uniqueId) {

@@ -2,7 +2,13 @@ plugins {
     alias(libs.plugins.blossom)
     id("java-library")
 }
-group = 'net.luckperms'
+group = 'me.lucko.luckperms'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
 
 tasks.withType(JavaCompile).configureEach {
     options.release = 25
@@ -104,6 +110,7 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             artifactId = 'minestom-app'
+            groupId = 'net.luckperms'
 
             from components.java
 

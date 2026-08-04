@@ -33,6 +33,15 @@ shadowJar {
         // group here silently produces an empty jarinjar.
         include(dependency('net.luckperms:.*'))
         include(dependency('com.google.guava:.*'))
+
+        // ...but not ':api'. Since the project group and the published groupId
+        // were aligned, the wildcard above also matches `net.luckperms:api`,
+        // which :common pulls in as an `api` dependency. The loader already has
+        // those classes in its own flat layer, so they were being shipped
+        // twice - once flat, once inside the nested jarinjar. Dead weight, and
+        // a second copy that a JarInJarClassLoader would happily prefer over
+        // the one the host can actually see.
+        exclude(dependency('net.luckperms:api'))
     }
 
     // Guava is deliberately NOT relocated.

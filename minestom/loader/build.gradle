@@ -8,7 +8,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly 'net.minestom:minestom:2026.05.17-1.21.11'
+    compileOnly 'net.minestom:minestom:2026.07.22-26.2'
 
     implementation project(':api')
     implementation project(':common:loader-utils')

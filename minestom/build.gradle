@@ -17,7 +17,7 @@ dependencies {
     // the upstream module that also has to supply Guava itself.
     implementation 'com.google.guava:guava:33.4.8-jre'
 
-    compileOnly 'net.minestom:minestom:2026.05.17-1.21.11'
+    compileOnly 'net.minestom:minestom:2026.07.22-26.2'
     compileOnly 'org.slf4j:slf4j-api:2.0.17'
 }
 

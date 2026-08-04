@@ -37,5 +37,9 @@ jobs:
       # Every module listed in olfPublications in the root build. :api and :common are
       # deliberately absent - they are internal, and publishing common would push its
       # gson/guava/adventure compile scopes onto consumers.
-      publish-task: ":minestom:publish :minestom:app:publish :minestom:loader:publish :minestom:library:publish :minestom:extension:publish"
+      # :api has to ship - this fork adds Platform.Type.MINESTOM, which upstream's
+      # net.luckperms:api does not have, and minestom-app declares it as a dependency.
+      # :common stays unpublished on purpose: it exports gson/guava/adventure as compile
+      # scopes and carries me.lucko.configurate:configurate-toml, which is not on Central.
+      publish-task: ":api:publish :minestom:publish :minestom:app:publish :minestom:loader:publish :minestom:library:publish :minestom:extension:publish"
     secrets: inherit

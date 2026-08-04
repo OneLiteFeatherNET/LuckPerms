@@ -76,60 +76,127 @@ subprojects {
     }
 }
 
-// Publish every remaining LuckPerms platform/loader module to the
-// OneLiteFeather repository as net.luckperms:<dashed-path>. The six modules
-// that already define their own publication (api, common, loader-utils,
-// minestom, minestom-app, minestom-loader) are intentionally excluded.
-def olfExtraPublishPaths = [
-        ':bukkit', ':bukkit:loader', ':bukkit-legacy', ':bukkit-legacy:loader',
-        ':bungee', ':bungee:loader', ':velocity',
-        ':fabric', ':forge', ':forge:loader', ':neoforge', ':neoforge:loader',
-        ':sponge', ':sponge:loader', ':sponge:sponge-service', ':sponge:sponge-service-proxy',
-        ':nukkit', ':nukkit:loader',
-        ':standalone', ':standalone:app', ':standalone:loader',
-        ':hytale', ':hytale:loader', ':hytale:loader-with-deps',
-        ':common:minecraft'
-] as Set
+// Every module this fork publishes to the OneLiteFeather repository, mapped to
+// its published artifactId and its human-readable name. The javadoc, javadoc/
+// sources jar and publishing setup below used to be copy-pasted into each of
+// these five build scripts nearly verbatim; it lives here exactly once now.
+//
+// Adding a module to this map is all it takes to publish it.
+def olfPublications = [
+        ':api'            : ['api', 'LuckPerms API'],
+        ':common'         : ['common', 'LuckPerms Common'],
+        ':minestom'       : ['minestom', 'LuckPerms Minestom'],
+        ':minestom:app'   : ['minestom-app', 'LuckPerms Minestom App'],
+        ':minestom:loader': ['minestom-loader', 'LuckPerms Minestom Loader'],
+]
 
 subprojects {
     afterEvaluate { proj ->
-        if (!olfExtraPublishPaths.contains(proj.path)) {
+        def entry = olfPublications[proj.path]
+        if (entry == null) {
             return
         }
 
-        def shadowTask = proj.tasks.findByName('shadowJar')
-        def hasJavaComponent = proj.components.findByName('java') != null
-        if (shadowTask == null && !hasJavaComponent) {
-            return
+        def publishedArtifactId = entry[0]
+        def displayName = entry[1]
+
+        // Only used occasionally for deployment - not needed for normal builds.
+        proj.javadoc {
+            title = displayName + ' (v' + proj.ext.apiVersion + ')'
+            options.overview = 'javadoc/overview.html'
+            options.encoding = 'UTF-8'
+            options.charSet = 'UTF-8'
+            options.links(
+                    'https://checkerframework.org/api/',
+                    'https://www.javadocs.dev/org.jetbrains/annotations/26.0.2/'
+            )
+            options.addStringOption('Xdoclint:none', '-quiet')
+            options.addStringOption('-since', '5.0,5.1,5.2,5.3,5.4,5.5')
+
+            if (JavaVersion.current() > JavaVersion.VERSION_1_8) {
+                options.links.add('https://docs.oracle.com/en/java/javase/21/docs/api/')
+            } else {
+                options.links.add('https://docs.oracle.com/javase/8/docs/api/')
+            }
+        }
+
+        // Has to run before the publication reads components.java, otherwise
+        // the javadoc and sources jars are missing from the published module.
+        proj.java {
+            withJavadocJar()
+            withSourcesJar()
         }
 
         proj.publishing {
-            publications {
-                if (findByName('mavenJava') == null && findByName('maven') == null && findByName('olf') == null) {
-                    olf(MavenPublication) {
-                        groupId = 'net.luckperms'
-                        artifactId = proj.path.substring(1).replace(':', '-')
-                        version = proj.version
-                        if (shadowTask != null) {
-                            artifact(shadowTask)
-                        } else {
-                            from proj.components.java
-                        }
-                    }
-                }
-            }
             repositories {
                 maven {
                     name = 'OneLiteFeatherRepository'
-                    def snapshotsRepoUrl = uri('https://repo.onelitefeather.dev/onelitefeather-snapshots')
+
                     def releasesRepoUrl = uri('https://repo.onelitefeather.dev/onelitefeather-releases')
-                    url = proj.version.toString().contains('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+                    def snapshotsRepoUrl = uri('https://repo.onelitefeather.dev/onelitefeather-snapshots')
+
+                    url = (proj.version.toString().contains('BETA')
+                            || proj.version.toString().contains('ALPHA')
+                            || proj.version.toString().contains('SNAPSHOT')) ? snapshotsRepoUrl : releasesRepoUrl
+
                     credentials(PasswordCredentials) {
                         username = System.getenv('ONELITEFEATHER_MAVEN_USERNAME')
                         password = System.getenv('ONELITEFEATHER_MAVEN_PASSWORD')
                     }
+
                     authentication {
                         basic(BasicAuthentication)
+                    }
+                }
+            }
+
+            publications {
+                mavenJava(MavenPublication) {
+                    artifactId = publishedArtifactId
+                    groupId = 'net.luckperms'
+
+                    if (proj.path == ':minestom:loader') {
+                        // The loader's whole point is the fat JarInJar - the
+                        // thin jar would be useless to a consumer.
+                        artifact(proj.tasks.shadowJar) {
+                            classifier = null
+                            builtBy(proj.tasks.shadowJar)
+                        }
+                    } else {
+                        from proj.components.java
+                    }
+
+                    pom {
+                        name = displayName
+                        description = 'A permissions manager for Minecraft servers.'
+                        url = 'https://luckperms.net'
+
+                        licenses {
+                            license {
+                                name = 'MIT'
+                                url = 'https://opensource.org/licenses/MIT'
+                            }
+                        }
+
+                        developers {
+                            developer {
+                                id = 'lucko'
+                                name = 'Luck'
+                                url = 'https://lucko.me'
+                                email = 'git@lucko.me'
+                            }
+                        }
+
+                        scm {
+                            connection = 'scm:git:https://github.com/OneLiteFeatherNET/LuckPerms.git'
+                            developerConnection = 'scm:git:git@github.com:OneLiteFeatherNET/LuckPerms.git'
+                            url = 'https://github.com/OneLiteFeatherNET/LuckPerms'
+                        }
+
+                        issueManagement {
+                            system = 'GitHub'
+                            url = 'https://github.com/OneLiteFeatherNET/LuckPerms/issues'
+                        }
                     }
                 }
             }

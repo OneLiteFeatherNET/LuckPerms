@@ -947,7 +947,11 @@ Beide bauen auf demselben `minestom/` (Plattformkern) und demselben `minestom/ap
    | `configurate-*`, `HikariCP`, `commons-pool2` | — | 0,55 MB |
    | **Summe** | | **25,63 MB** |
 
-   Dazu kommen die Nicht-Storage-Deps (Guava, Caffeine, OkHttp/Okio, SnakeYAML, `event`) — grob weitere 5 MB. **ASM, ByteBuddy und `jar-relocator` entfallen im flachen Artefakt**, weil bei `PRELOADED` nichts mehr zur Laufzeit reloziert wird; das ist der einzige Posten, der durch den Modus kleiner wird.
+   Dazu kommen die Nicht-Storage-Deps (Guava, Caffeine, OkHttp/Okio, SnakeYAML, `event`).
+
+   > **Korrektur 2026-08-04, am gebauten Artefakt gemessen: 42 415 694 Bytes = 40,5 MiB**, 17 670 Einträge — deutlich mehr als die hier geschätzten ~30 MB. Zwei Gründe:
+   > - **ByteBuddy entfällt NICHT** (6,72 MB, 18 % des Jars). Hier stand ursprünglich, ASM, ByteBuddy und `jar-relocator` fielen bei `PRELOADED` weg. Für ASM und `jar-relocator` stimmt das, für ByteBuddy nicht: Es ist kein Relocation-Werkzeug, sondern erzeugt zur Laufzeit die API-Event-Implementierungen (`EventDispatcher` → `GeneratedEventClass.generate()`) und steht deshalb in `getGlobalDependencies()`.
+   > - `sqlite-jdbc` schlägt mit 13,61 MB zu Buche (37 %), Guava mit 2,47 MB.
 
    *Hinweis ohne Entscheidungsbedarf:* Mehr als die Hälfte des Zuwachses ist `sqlite-jdbc` (13,65 MB), das native Binaries für alle Plattformen mitbringt. Wer die Größe später doch drücken will, hat dort den einen wirksamen Hebel — das Default-Backend ist H2, nicht SQLite.
 2. **Doppelte Testmatrix.** Beide Artefakte brauchen den Smoke-Test aus Schritt 0, sonst verrottet das seltener benutzte still. Ohne CI-Gate für beide ist der Spagat nach zwei Releases faktisch wieder ein Einzelweg.
@@ -1225,6 +1229,47 @@ Aus der Umsetzung, jeweils am Code geprüft:
 | „`minestom/app` hat keine Minestom-Dependency" | überholt — seit `3af45d159` `compileOnly`, sonst ginge `LuckPermsCommandConditions` dort nicht |
 | `minestom/app/build.gradle:19-49`, Adventure 5.1.1 | ab Zeile 24, Version längst 5.2.0 |
 | `AbstractLuckPermsPlugin.java:244 / :340 / :377` | alle drei **exakt korrekt** |
+
+### 7.9 `minestom/library` — das flache Artefakt steht
+
+Vier Dateien, kein `src/`: ein reines Packaging-Modul (`minestom/library/build.gradle`), der `settings.gradle`-Eintrag, der Map-Eintrag im Root und der Ballast-Fix in `minestom/build.gradle`. Publiziert als `net.luckperms:minestom-library`; das Hauptartefakt ist das Fat-Jar (nicht `-all`), das POM hat **keine** `<dependencies>`.
+
+**Relocation — die Regel ist schärfer als „Konsistenz".** Eine Relocation pro `Relocation`-Eintrag in `Dependency.java`, mit demselben `me.lucko.luckperms.lib.`-Präfix. Grund: Shadow schreibt passende **String-Konstanten in jeder** verarbeiteten Klasse um, nicht nur in relozierten. Dadurch wandert `"com.mysql.cj.jdbc.Driver"` in `MySqlConnectionFactory` automatisch mit — verifiziert, liefert zur Laufzeit `me.lucko.luckperms.lib.mysql.cj.jdbc.Driver`.
+
+Bewusst **nicht** reloziert, jeweils weil `Dependency.java` dort keine Regel hat: Guava (der Fehler aus 7.7.6), gson, slf4j, Adventure. Ebenso **H2 und SQLite**: beide werden per String-Literal (`"org.h2.jdbc.JdbcConnection"`) über einen Isolated-ClassLoader geladen — eine Relocation würde die Klassen verschieben und die Literale ins Leere zeigen lassen.
+
+**Konsistenz auf drei Wegen belegt:** `jdeps` findet kein unaufgelöstes reloziertes Paket; `unzip -l` zeigt für alle 19 verschobenen Pakete null unrelozierte Reste und keine Doppel-Relocation; 13 548 von 13 934 Klassen laden und linken unter einem `URLClassLoader`. Die 386 Ausfälle sind ausnahmslos optionale Fremd-Integrationen (protobuf, netty, micrometer, OSGi, servlet, hibernate, JNA), die auch der Runtime-Download-Pfad nicht mitbringt — keine nennt LuckPerms oder ein reloziertes Paket.
+
+**Ballast-Fix erledigt:** `exclude(dependency('net.luckperms:api'))` im jarinjar.
+
+| | vorher | nachher |
+|---|---|---|
+| jarinjar Einträge | 3 037 | 2 799 |
+| `net/luckperms/api/*` im jarinjar | 236 (192 `.class`) | **0** |
+| Loader-Fat-Jar | 4 210 219 B | 4 092 695 B |
+
+Die 192 API-Klassen liegen weiterhin genau einmal flach im äußeren Loader.
+
+#### Zwei Grenzen, die ein flaches Jar nicht überwinden kann
+
+- **H2-1.x-Migration.** `MigrateH2ToVersion2` lädt `H2_DRIVER_LEGACY` (1.4.199) über einen *zweiten* Isolated-ClassLoader. Beide Versionen lägen unreloziert unter `org.h2` — nur eine passt ins flache Jar, und das muss 2.1.214 sein. **Konsumenten mit einer H2-Datei aus LuckPerms < 5.4 müssen einmal über das Loader-Artefakt migrieren.**
+- **`StorageType.REST`** hat gar keine `Dependency`-Konstante, ist in `:common` `compileOnly` und fehlt in *jedem* Upstream-Plattform-Jar. Bewusst nicht gebundelt — sonst wäre dieses Artefakt das einzige, in dem REST funktioniert.
+
+Beides steht kommentiert im Build-File.
+
+#### Track G und H greifen ineinander
+
+Beide liefen parallel; H meldete am Ende drei fehlende Bausteine (`PRELOADED`, ein No-Op-`DependencyManager`, die Options-API). Alle drei sind durch G entstanden. Nach dem Merge am gebauten `minestom-library-5.6.0.jar` (40,5 MiB, 17 670 Einträge) geprüft — alles vorhanden:
+
+```
+minestom/app/DependencyMode                ✓
+minestom/app/LuckPermsMinestomOptions      ✓ (Klasse + Builder + DirectorySelection)
+minestom/LuckPermsMinestom                 ✓
+minestom/PreloadedDependencyManager        ✓
+common/loader/LoaderBootstrap              ✓  <- der Befund aus 7.8
+```
+
+**Was noch fehlt, ist der Nachweis:** ein Smoke-Test, der einen echten Server aus diesem flachen 40-MiB-Jar mit `LuckPermsMinestom.create(...dependencyMode(PRELOADED)...)` hochfährt. G hat die flache Route nur bis `create()` belegt und dabei ein flach ausgepacktes jarinjar verwendet, nicht dieses Artefakt. Das ist der nächste Schritt — zusammen mit `minestom/extension`.
 
 ### Risiken bei der Umsetzung
 

@@ -34,23 +34,77 @@ import me.lucko.luckperms.minestom.LPMinestomPlugin;
 import net.kyori.adventure.text.Component;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.entity.Player;
-import net.minestom.server.event.GlobalEventHandler;
+import net.minestom.server.event.Event;
+import net.minestom.server.event.EventNode;
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent;
 import net.minestom.server.event.player.AsyncPlayerPreLoginEvent;
+import net.minestom.server.event.player.PlayerDisconnectEvent;
 
 public class MinestomConnectionListener extends AbstractConnectionListener {
+
+    /**
+     * Name of the event node LuckPerms owns. Visible in Minestom's node tree, so
+     * it is worth being recognisable.
+     */
+    public static final String EVENT_NODE_NAME = "luckperms";
+
     private final LPMinestomPlugin plugin;
+
+    private EventNode<Event> parentNode;
+    private EventNode<Event> node;
 
     public MinestomConnectionListener(LPMinestomPlugin plugin) {
         super(plugin);
         this.plugin = plugin;
     }
 
+    /**
+     * Registers every listener on a dedicated child node of the host's event
+     * tree.
+     *
+     * <p>Listeners used to be added straight to the {@code GlobalEventHandler}
+     * via {@code addListener(Class, Consumer)}. That overload does not hand back
+     * the {@code EventListener} instance, which makes {@code removeListener}
+     * impossible - so once registered, LuckPerms' listeners stayed in the host
+     * forever, even after a shutdown. Owning a node instead means
+     * {@link #unregisterListeners()} can detach all of them at once.</p>
+     */
     public void registerListeners() {
-        GlobalEventHandler eventManager = MinecraftServer.getGlobalEventHandler();
+        if (this.node != null) {
+            throw new IllegalStateException("Listeners are already registered");
+        }
 
-        eventManager.addListener(AsyncPlayerPreLoginEvent.class, (this::asyncPreLoginHandler));
-        eventManager.addListener(AsyncPlayerConfigurationEvent.class, (this::asyncConfigHandler));
+        this.parentNode = this.plugin.getBootstrap().getOptions().eventNode();
+        if (this.parentNode == null) {
+            this.parentNode = MinecraftServer.getGlobalEventHandler();
+        }
+
+        EventNode<Event> node = EventNode.all(EVENT_NODE_NAME);
+        node.addListener(AsyncPlayerPreLoginEvent.class, this::asyncPreLoginHandler);
+        node.addListener(AsyncPlayerConfigurationEvent.class, this::asyncConfigHandler);
+        node.addListener(PlayerDisconnectEvent.class, this::disconnectHandler);
+
+        this.parentNode.addChild(node);
+        this.node = node;
+    }
+
+    /**
+     * Detaches the entire event node from the host again. Idempotent.
+     */
+    public void unregisterListeners() {
+        if (this.node == null) {
+            return;
+        }
+        this.parentNode.removeChild(this.node);
+        this.node = null;
+        this.parentNode = null;
+    }
+
+    /**
+     * @return the event node LuckPerms owns, or null while nothing is registered
+     */
+    public EventNode<Event> getEventNode() {
+        return this.node;
     }
 
     private void asyncConfigHandler(AsyncPlayerConfigurationEvent event) {
@@ -87,4 +141,16 @@ public class MinestomConnectionListener extends AbstractConnectionListener {
         }
     }
 
+    /**
+     * Unloads a player's data when they leave.
+     *
+     * <p>This path did not exist at all before: only the two login events were
+     * registered, {@code handleDisconnect} was never called, and every user that
+     * ever logged in stayed in the user manager for the lifetime of the process
+     * along with their transient nodes.</p>
+     */
+    private void disconnectHandler(PlayerDisconnectEvent event) {
+        final Player player = event.getPlayer();
+        handleDisconnect(player.getUuid());
+    }
 }

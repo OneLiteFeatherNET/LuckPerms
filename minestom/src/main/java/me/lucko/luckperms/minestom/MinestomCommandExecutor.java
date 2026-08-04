@@ -40,26 +40,60 @@ import java.util.List;
 public class MinestomCommandExecutor extends CommandManager {
     private final LuckPermsCommand command;
     private final LPMinestomPlugin plugin;
+    private final List<String> aliases;
 
-    public MinestomCommandExecutor(LPMinestomPlugin plugin) {
+    private boolean registered;
+
+    /**
+     * @param plugin  the plugin
+     * @param aliases the command names to register, primary name first. An empty
+     *                list disables command registration entirely.
+     */
+    public MinestomCommandExecutor(LPMinestomPlugin plugin, List<String> aliases) {
         super(plugin);
         this.plugin = plugin;
-        this.command = new LuckPermsCommand(this);
+        this.aliases = List.copyOf(aliases);
+        this.command = this.aliases.isEmpty() ? null : new LuckPermsCommand(this, this.aliases);
+    }
+
+    /**
+     * @return the command names this executor registers
+     */
+    public List<String> getAliases() {
+        return this.aliases;
     }
 
     public void register() {
+        if (this.command == null || this.registered) {
+            return;
+        }
         MinecraftServer.getCommandManager().register(this.command);
+        this.registered = true;
     }
 
+    /**
+     * Removes the command from Minestom again. Idempotent.
+     *
+     * <p>This method existed before but was never called from anywhere, so
+     * {@code /lp} survived a LuckPerms shutdown and kept dispatching into a dead
+     * plugin.</p>
+     */
     public void unregister() {
+        if (this.command == null || !this.registered) {
+            return;
+        }
         MinecraftServer.getCommandManager().unregister(this.command);
+        this.registered = false;
     }
 
     private class LuckPermsCommand extends Command {
         private final MinestomCommandExecutor commandExecutor;
 
-        public LuckPermsCommand(@NotNull MinestomCommandExecutor commandExecutor) {
-            super("luckperms", "lp", "perm", "perms", "permission", "permissions");
+        public LuckPermsCommand(@NotNull MinestomCommandExecutor commandExecutor, @NotNull List<String> aliases) {
+            // Minestom's Command(String, String...) takes every name at once and
+            // register() is a single call, so the alias set has to be decided
+            // before construction - it cannot be filtered afterwards.
+            super(aliases.get(0), aliases.subList(1, aliases.size()).toArray(new String[0]));
             this.commandExecutor = commandExecutor;
 
             // Minestom evaluates this both on execution and when computing

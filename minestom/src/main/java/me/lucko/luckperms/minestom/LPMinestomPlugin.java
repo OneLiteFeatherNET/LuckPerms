@@ -146,7 +146,15 @@ public class LPMinestomPlugin extends AbstractLuckPermsPlugin {
 
     @Override
     protected void setupPlatformHooks() {
-        // No platform hooks necessary
+        // Minestom has no permission system of its own, so LuckPerms is the only
+        // thing that can answer permission checks. Publish this instance so
+        // LuckPermsCommandConditions can resolve it lazily.
+        LuckPermsCommandConditions.bind(this);
+    }
+
+    @Override
+    protected void removePlatformHooks() {
+        LuckPermsCommandConditions.unbind(this);
     }
 
     @Override

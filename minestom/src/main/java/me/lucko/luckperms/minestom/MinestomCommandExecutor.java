@@ -62,6 +62,10 @@ public class MinestomCommandExecutor extends CommandManager {
             super("luckperms", "lp", "perm", "perms", "permission", "permissions");
             this.commandExecutor = commandExecutor;
 
+            // Minestom evaluates this both on execution and when computing
+            // tab-complete visibility on connect.
+            setCondition(LuckPermsCommandConditions.anyLuckPermsCommand());
+
             final var params = ArgumentType.StringArray("params");
 
             params.setSuggestionCallback((sender, context, suggestion) -> {

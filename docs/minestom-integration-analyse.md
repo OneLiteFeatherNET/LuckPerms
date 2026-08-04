@@ -1149,9 +1149,21 @@ Die Klasse liegt jetzt in `minestom/app/src/main/java/me/lucko/luckperms/minesto
 
 #### 7.7.5 Offene Restposten
 
-- **`common/minecraft/**` (3 Dateien) hat denselben kaputten Merge** wie die zurückgerollten Module: `MinecraftSchedulerAdapter` erbt von `AbstractJavaScheduler`, das in `common/` nicht mehr existiert; `MinecraftLuckPermsBootstrap` verlor die `getScheduler()`-Deklaration. Identisch auf `cd0f009e0` zurückrollen.
-- **`common/placeholders/src/test/.../PlaceholderTest.java` wurde im Fork gelöscht**, ohne erkennbaren Grund. Kandidat für Wiederherstellung.
+- ~~**`common/minecraft/**` (3 Dateien) hat denselben kaputten Merge**~~ — **erledigt.** Auf `cd0f009e0` zurückgerollt, Fork-Delta jetzt 0.
+- ~~**`common/placeholders/src/test/.../PlaceholderTest.java` wurde im Fork gelöscht**~~ — **erledigt.** Wiederhergestellt, läuft grün.
 - **Der lokale Tag `v5.5` weicht von Upstreams `v5.5` ab** — `git fetch` verweigert das Update. Der Fork hat einen Upstream-Tag überschrieben. Für Release Please kein Blocker (RP wertet `bootstrap-sha` und das Manifest aus und erzeugt `v6.0.0`), aber die Tag-Historie ist damit nicht vertrauenswürdig — was auch erklärt, warum das alte `determinePatchVersion()` aus `git describe --tags` unzuverlässige Patch-Nummern lieferte.
+
+#### 7.7.8 Merge-Hygiene abgeschlossen — der Fork trägt noch 16 Dateien außerhalb `minestom/`
+
+Die beiden Restposten aus 7.7.5 sind erledigt. Beide gingen auf **denselben** Merge `4752f24e6` zurück: dessen Konfliktblock listet `MinecraftSchedulerAdapter.java` und `PlaceholderTest.java` nebeneinander, aufgelöst zugunsten der Fork-Seite bzw. zugunsten der Löschung. Die Fork-Fassung von `MinecraftSchedulerAdapter` war sogar **älter als `fe3078e5d` („Folia support")**, also Pre-Folia-Code — es gibt keine Lesart, in der das Absicht war.
+
+`PlaceholderTest` läuft wieder: 2/2 grün, das Modul insgesamt 12/12. Weil `common:placeholders` nicht in `settings.gradle` steht, wurde es dafür über ein Wegwerf-Init-Script (`beforeSettings { it.include('common:placeholders') }`) eingehängt — `settings.gradle` blieb unangetastet, der reguläre Build sieht das Modul weiterhin nicht.
+
+**Divergenz gegen `cd0f009e0`** (ohne `docs/`): **38 → 34 Dateien**, außerhalb `minestom/` **20 → 16**. Die Zahl liegt über der 30/13 aus 7.7.4, weil seither Release Please, der Publishing-Hoist und die `standalone/`-Reaktivierung dazugekommen sind — das ist gewollter Fork-Inhalt, kein Merge-Müll.
+
+Was außerhalb `minestom/` bleibt, in vier Gruppen: **Adventure-5-Migration** (`common/src/.../locale/{Message,TranslationManager}.java` plus das neu eingezogene `UTF8ResourceBundleControl`, das Adventure 5 nicht mehr mitliefert), **Build- und Publishing-Umbau** (`build.gradle`, `settings.gradle`, `api/build.gradle`, `common/build.gradle`), **Release Please** (`release-please-config.json`, `.release-please-manifest.json`, `CHANGELOG.md`, die beiden Workflows) und **`standalone/`** (Adventure-Alignment auf 5.2.0, `options.release` 17 → 21). Dazu der eine `MINESTOM`-Enum-Eintrag in `Platform.java`. Alles davon ist notwendig; einzig die Anhebung von `options.release` in den drei `standalone`-Skripten ist prüfenswert, weil sie das Konsumenten-Minimum dieser Module ohne dokumentierten Grund hebt.
+
+Damit ist **kein zurückrollbarer Merge-Müll mehr im Baum**. Jede verbleibende Abweichung ist ein bewusster Fork-Beitrag.
 
 ### Risiken bei der Umsetzung
 

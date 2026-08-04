@@ -23,31 +23,34 @@
  *  SOFTWARE.
  */
 
-package me.lucko.luckperms.common.minecraft;
+package me.lucko.luckperms.common.placeholders;
 
-import me.lucko.luckperms.common.plugin.scheduler.JavaSchedulerAdapter;
-import me.lucko.luckperms.common.sender.Sender;
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.model.user.User;
+import net.luckperms.api.query.QueryOptions;
+import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.Executor;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
 
-public class MinecraftSchedulerAdapter extends JavaSchedulerAdapter {
-    private final Executor syncExecutor;
+public class PlaceholderTest {
 
-    public MinecraftSchedulerAdapter(MinecraftLuckPermsBootstrap bootstrap) {
-        super(bootstrap);
-        this.syncExecutor = r -> bootstrap.getServer().orElseThrow(() -> new IllegalStateException("Server not ready")).execute(r);
+    private final PlaceholderContext ctx = new PlaceholderContext(mock(LuckPerms.class), mock(User.class), mock(QueryOptions.class));
+
+    @Test
+    public void testBasic() {
+        Placeholder.Basic placeholder = Placeholder.basic("test", ctx -> "hello");
+
+        assertEquals("test", placeholder.id());
+        assertEquals("hello", placeholder.resolve(this.ctx));
     }
 
-    public Executor sync() {
-        return this.syncExecutor;
+    @Test
+    public void testUsingArgument() {
+        Placeholder.UsingArgument placeholder = Placeholder.usingArgument("test", ctx -> "hello " + ctx.argument());
+
+        assertEquals("test", placeholder.id());
+        assertEquals("hello world", placeholder.resolve(this.ctx.withArgument("world")));
     }
 
-    public void executeSync(Runnable task) {
-        this.syncExecutor.execute(task);
-    }
-
-    @Override
-    public void executeSync(Sender ctx, Runnable task) {
-        this.syncExecutor.execute(task);
-    }
 }

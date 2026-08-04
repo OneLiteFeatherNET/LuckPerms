@@ -1,0 +1,41 @@
+name: release-please
+
+on:
+  push:
+    branches:
+      - 'master'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v5
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Chained via needs/if - NOT via `on: push: tags`. Release Please tags with the
+  # default GITHUB_TOKEN, which does not re-trigger tag-push workflows in the
+  # same repository.
+  publish:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: OneLiteFeatherNET/workflows/.github/workflows/gradle-publish.yml@v2.4.0
+    with:
+      java-version: "25"
+      java-distribution: "temurin"
+      # This fork ships only the Minestom platform - the other platform modules
+      # are not part of the build (see settings.gradle).
+      build-task: ":minestom:loader:build"
+      # Every module listed in olfPublications in the root build. :api and :common are
+      # deliberately absent - they are internal, and publishing common would push its
+      # gson/guava/adventure compile scopes onto consumers.
+      publish-task: ":minestom:publish :minestom:app:publish :minestom:loader:publish :minestom:library:publish :minestom:extension:publish"
+    secrets: inherit

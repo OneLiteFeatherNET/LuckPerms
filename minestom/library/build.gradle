@@ -1,0 +1,242 @@
+plugins {
+    alias(libs.plugins.shadow)
+}
+
+// ---------------------------------------------------------------------------
+// net.luckperms:minestom-library - the FLAT delivery artifact.
+//
+// Counterpart to `:minestom:loader`, which ships the same code as a JarInJar.
+// The two exist side by side on purpose (see docs/minestom-integration-analyse.md
+// section 7.4); this module is the one a consumer pulls into its own ShadowJar.
+//
+// Why flat and not JarInJar:
+//   A consumer ShadowJar and a JarInJar are structurally incompatible. Shadow
+//   rewrites the `BOOTSTRAP_CLASS` string constant in MinestomLoader while the
+//   nested `luckperms-minestom.jarinjar` stays an opaque blob, so the relocated
+//   name resolves to nothing -> ClassNotFoundException at startup.
+//
+// Why every dependency has to be baked in:
+//   Flat means LuckPerms lives on the application class loader. Since Java 9
+//   that is not a URLClassLoader, Minestom offers neither a plugin manager nor
+//   a launcher hook, so there is no working ClassPathAppender. LPMinestomBootstrap
+//   already detects this and installs a no-op appender - which is only correct
+//   if nothing ever needs to be downloaded. Hence: DependencyMode.PRELOADED,
+//   enforced, and the full dependency set shaded in at build time.
+// ---------------------------------------------------------------------------
+
+repositories {
+    mavenCentral()
+}
+
+configurations {
+    // Everything that goes *into* the jar. Deliberately not `implementation`:
+    // this module has no sources, and anything on a consumable configuration
+    // would end up as a <dependency> in the published POM. A consumer must get
+    // exactly one artifact and resolve nothing extra.
+    bundled {
+        canBeConsumed = false
+        canBeResolved = true
+    }
+}
+
+dependencies {
+    // -- LuckPerms itself ---------------------------------------------------
+    // Non-transitive across the board so the bundle content is decided here and
+    // nowhere else; :common's `api` block would otherwise drag in Adventure,
+    // gson and a stale Guava 19.
+    bundled(project(':minestom'))            { transitive = false }
+    bundled(project(':minestom:app'))        { transitive = false }
+    bundled(project(':common'))              { transitive = false }
+    bundled(project(':api'))                 { transitive = false }
+    // Needed because :minestom compiles against JarInJarClassLoader: the flat
+    // jar keeps the class so LPMinestomBootstrap's `instanceof` check resolves
+    // instead of throwing NoClassDefFoundError.
+    bundled(project(':common:loader-utils')) { transitive = false }
+
+    // -- Guava --------------------------------------------------------------
+    // Minestom does not ship Guava but ~95 classes in :common import it.
+    // Version matches :minestom, which has the same problem.
+    bundled 'com.google.guava:guava:33.4.8-jre'
+
+    // -- Everything below mirrors common/.../dependencies/Dependency.java ----
+    //
+    // One entry per enum constant, same version, `transitive = false` so the
+    // bundle is byte-for-byte the same artifact set the DependencyManager would
+    // have downloaded (it fetches single jars, never transitive graphs - which
+    // is why mysql-connector-j must not be allowed to drag in protobuf-java).
+    //
+    // NOT mirrored, on purpose:
+    //   ASM / ASM_COMMONS / JAR_RELOCATOR - only used by RelocationHandler, and
+    //       under PRELOADED nothing is relocated at runtime any more.
+    //   ADVENTURE* / COMMODORE*           - Minestom provides Adventure 5
+    //       natively; Commodore is Bukkit-only.
+    //   SLF4J_API / SLF4J_SIMPLE          - Minestom provides slf4j, and
+    //       DependencyRegistry.slf4jPresent() drops them for exactly that reason.
+    //   H2_DRIVER_LEGACY                  - see the note further down.
+
+    // global dependencies (AbstractLuckPermsPlugin#getGlobalDependencies)
+    bundled('net.kyori:event-api:3.0.0')                        { transitive = false }
+    bundled('com.github.ben-manes.caffeine:caffeine:3.2.0')     { transitive = false }
+    bundled('com.squareup.okio:okio:1.17.6')                    { transitive = false }
+    bundled('com.squareup.okhttp3:okhttp:3.14.9')               { transitive = false }
+    // ByteBuddy is NOT optional: EventDispatcher -> GeneratedEventClass#generate
+    // builds the API event implementations at runtime with it.
+    bundled('net.bytebuddy:byte-buddy:1.15.11')                 { transitive = false }
+
+    // flatfile storage (YAML / JSON / HOCON / TOML, combined and split)
+    bundled('org.spongepowered:configurate-core:3.7.3')         { transitive = false }
+    bundled('org.spongepowered:configurate-gson:3.7.3')         { transitive = false }
+    bundled('org.spongepowered:configurate-yaml:3.7.3')         { transitive = false }
+    bundled('org.spongepowered:configurate-hocon:3.7.3')        { transitive = false }
+    bundled('me.lucko.configurate:configurate-toml:3.7')        { transitive = false }
+    bundled('org.yaml:snakeyaml:1.33')                          { transitive = false }
+    bundled('com.typesafe:config:1.4.1')                        { transitive = false }
+    bundled('com.moandjiezana.toml:toml4j:0.7.2')               { transitive = false }
+
+    // file-backed SQL. Neither is relocated - Dependency.java deliberately
+    // leaves them alone because they are loaded through an isolated class
+    // loader, and H2ConnectionFactory / SqliteConnectionFactory look their
+    // driver up by string literal ("org.h2.jdbc.JdbcConnection",
+    // "org.sqlite.jdbc4.JDBC4Connection"). Relocating them would rewrite the
+    // classes but leave those strings pointing nowhere.
+    bundled('com.h2database:h2:2.1.214')                        { transitive = false }
+    bundled('org.xerial:sqlite-jdbc:3.49.1.0')                  { transitive = false }
+
+    // remote SQL
+    bundled('com.zaxxer:HikariCP:6.3.0')                        { transitive = false }
+    bundled('com.mysql:mysql-connector-j:9.3.0')                { transitive = false }
+    bundled('org.mariadb.jdbc:mariadb-java-client:3.5.2')       { transitive = false }
+    bundled('org.postgresql:postgresql:42.7.6')                 { transitive = false }
+
+    // mongodb
+    bundled('org.mongodb:mongodb-driver-core:5.5.0')            { transitive = false }
+    bundled('org.mongodb:mongodb-driver-legacy:5.5.0')          { transitive = false }
+    bundled('org.mongodb:mongodb-driver-sync:5.5.0')            { transitive = false }
+    bundled('org.mongodb:bson:5.5.0')                           { transitive = false }
+
+    // messaging services
+    bundled('redis.clients:jedis:5.2.0')                        { transitive = false }
+    bundled('org.apache.commons:commons-pool2:2.12.1')          { transitive = false }
+    bundled('io.nats:jnats:2.21.1')                             { transitive = false }
+    bundled('com.rabbitmq:amqp-client:5.25.0')                  { transitive = false }
+
+    // -- Two gaps that a flat jar cannot close, both also present upstream ---
+    //
+    // H2_DRIVER_LEGACY (com.h2database:h2:1.4.199): H2ConnectionFactory's
+    //   MigrateH2ToVersion2 loads it through a *second* isolated class loader to
+    //   read pre-2.0 database files. Both versions live in `org.h2` and neither
+    //   is relocated, so only one of them can be in a flat jar - and it has to
+    //   be 2.1.214, the one the normal code path uses. Consequence: a consumer
+    //   carrying a LuckPerms H2 file written by LuckPerms <5.4 has to migrate it
+    //   with the loader artifact first. Documented, not fixable here without
+    //   inventing a relocation rule that Dependency.java does not know about.
+    //
+    // StorageType.REST (net.luckperms:rest-api-java-client): has no Dependency
+    //   enum constant at all, so the DependencyManager cannot fetch it either -
+    //   it is `compileOnly` in :common and missing from every platform jar
+    //   upstream. Bundling it here would make this artifact the only one where
+    //   REST works, which is a bigger surprise than the gap itself.
+}
+
+shadowJar {
+    // Named after the published coordinate, and with an EMPTY classifier: this
+    // is the main artifact of `net.luckperms:minestom-library`, not a `-all`
+    // sidecar. Leaving shadow's default 'all' classifier in place makes the
+    // generated POM come out as `<packaging>pom</packaging>` with no jar at all.
+    archiveBaseName = 'minestom-library'
+    archiveClassifier = ''
+
+    // Only `bundled` - not the default runtimeClasspath.
+    configurations = [project.configurations.bundled]
+
+    // Relocate the same packages to the same targets that Dependency.java
+    // declares, using the same `me.lucko.luckperms.lib.` prefix
+    // (Relocation.RELOCATION_PREFIX). This is the core requirement of the flat
+    // artifact: shadow rewrites matching string constants in *every* class it
+    // processes, not just in the relocated ones, so :common's hardcoded driver
+    // names move along with the classes they name. Any pattern that appears
+    // here but not in Dependency.java (or the other way round) would produce a
+    // jar that is internally inconsistent the moment a code path reaches for a
+    // name it built as a string.
+    //
+    // Guava is the cautionary tale: the hytale platform relocates it, but
+    // Dependency.java has no rule for com.google.common at all. A relocated
+    // Guava therefore breaks configurate-core with
+    // "NoClassDefFoundError: com/google/common/base/Splitter". Same verdict for
+    // gson, slf4j and Adventure - no rule there, no rule here.
+    relocate 'net.kyori.event',              'me.lucko.luckperms.lib.eventbus'
+    relocate 'com.github.benmanes.caffeine',  'me.lucko.luckperms.lib.caffeine'
+    relocate 'okio',                          'me.lucko.luckperms.lib.okio'
+    relocate 'okhttp3',                       'me.lucko.luckperms.lib.okhttp3'
+    relocate 'net.bytebuddy',                 'me.lucko.luckperms.lib.bytebuddy'
+    relocate 'ninja.leaping.configurate',     'me.lucko.luckperms.lib.configurate'
+    relocate 'org.yaml.snakeyaml',            'me.lucko.luckperms.lib.yaml'
+    relocate 'com.typesafe.config',           'me.lucko.luckperms.lib.hocon'
+    relocate 'com.moandjiezana.toml',         'me.lucko.luckperms.lib.toml4j'
+    relocate 'com.zaxxer.hikari',             'me.lucko.luckperms.lib.hikari'
+    relocate 'com.mysql',                     'me.lucko.luckperms.lib.mysql'
+    relocate 'org.mariadb.jdbc',              'me.lucko.luckperms.lib.mariadb'
+    relocate 'org.postgresql',                'me.lucko.luckperms.lib.postgresql'
+    relocate 'com.mongodb',                   'me.lucko.luckperms.lib.mongodb'
+    relocate 'org.bson',                      'me.lucko.luckperms.lib.bson'
+    relocate 'redis.clients.jedis',           'me.lucko.luckperms.lib.jedis'
+    relocate 'org.apache.commons.pool2',      'me.lucko.luckperms.lib.commonspool2'
+    relocate 'io.nats.client',                'me.lucko.luckperms.lib.nats'
+    relocate 'com.rabbitmq',                  'me.lucko.luckperms.lib.rabbitmq'
+
+    // Relocates the *contents* of META-INF/services too, keeping java.sql.Driver
+    // and friends pointing at the relocated implementations.
+    mergeServiceFiles()
+
+    // A fat jar cannot carry per-dependency module descriptors or the signature
+    // files of jars it has just rewritten.
+    exclude 'module-info.class'
+    exclude 'META-INF/versions/*/module-info.class'
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+    exclude 'META-INF/maven/**'
+    exclude 'META-INF/proguard/**'
+
+    // Provided by the host (Minestom exposes Adventure 5, gson and slf4j).
+    // Bundling them would shadow the host's copies with older ones.
+    exclude 'net/kyori/adventure/**'
+    exclude 'net/kyori/examination/**'
+    exclude 'net/kyori/option/**'
+    exclude 'net/kyori/ansi/**'
+    exclude 'com/google/gson/**'
+    exclude 'org/slf4j/**'
+}
+
+// The publication has to be the fat jar - the thin one is an empty shell.
+// Swapping the outgoing artifact of the java component's configurations keeps
+// this entirely inside this build script; the shared publishing block in the
+// root build.gradle stays untouched.
+configurations.apiElements.outgoing.artifacts.clear()
+configurations.runtimeElements.outgoing.artifacts.clear()
+configurations.apiElements.outgoing.artifact(tasks.named('shadowJar'))
+configurations.runtimeElements.outgoing.artifact(tasks.named('shadowJar'))
+
+// ...and drop shadow's own `-all` variant, which would otherwise show up in the
+// Gradle module metadata as a second, misleading way to consume this artifact.
+components.java.withVariantsFromConfiguration(configurations.shadowRuntimeElements) {
+    skip()
+}
+
+artifacts {
+    archives shadowJar
+}
+
+tasks.named('assemble') {
+    dependsOn tasks.named('shadowJar')
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+}

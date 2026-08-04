@@ -5,13 +5,19 @@ plugins {
 repositories {
     mavenCentral()
 }
-group = 'me.lucko.luckperms'
+
 dependencies {
     implementation project(':common')
     compileOnly project(':common:loader-utils')
     compileOnly project(':minestom:app')
 
-    compileOnly 'net.minestom:minestom:2026.05.17-1.21.11'
+    // Minestom does not ship Guava, but ~95 classes in :common import it and
+    // there is no Dependency.GUAVA entry that could download it at runtime.
+    // It therefore has to be bundled. Version matches standalone/app, which is
+    // the upstream module that also has to supply Guava itself.
+    implementation 'com.google.guava:guava:33.4.8-jre'
+
+    compileOnly 'net.minestom:minestom:2026.07.22-26.2'
     compileOnly 'org.slf4j:slf4j-api:2.0.17'
 }
 
@@ -22,9 +28,36 @@ shadowJar {
 
     dependencies {
         // Bundle only the LuckPerms implementation into the jarinjar.
+        // The group has to match the one the root build.gradle assigns to every
+        // subproject - project dependencies are resolved under it, so a stale
+        // group here silently produces an empty jarinjar.
         include(dependency('net.luckperms:.*'))
-        include(dependency('me.lucko.luckperms:.*'))
+        include(dependency('com.google.guava:.*'))
+
+        // ...but not ':api'. Since the project group and the published groupId
+        // were aligned, the wildcard above also matches `net.luckperms:api`,
+        // which :common pulls in as an `api` dependency. The loader already has
+        // those classes in its own flat layer, so they were being shipped
+        // twice - once flat, once inside the nested jarinjar. Dead weight, and
+        // a second copy that a JarInJarClassLoader would happily prefer over
+        // the one the host can actually see.
+        exclude(dependency('net.luckperms:api'))
     }
+
+    // Guava is deliberately NOT relocated.
+    //
+    // The hytale module relocates it, but that pattern does not work here: the
+    // dependencies LuckPerms downloads at runtime (configurate-core in
+    // particular) are remapped with the rules from Dependency.java, and there
+    // is no relocation rule for com.google.common anywhere. Their Guava
+    // references therefore stay unrelocated, so a relocated Guava produces
+    // "NoClassDefFoundError: com/google/common/base/Splitter" the moment the
+    // config is read. Every upstream platform relies on the host providing an
+    // unrelocated Guava; Minestom does not, so we ship one inside the jarinjar.
+    //
+    // This is safe because the jarinjar has its own class loader and delegates
+    // parent-first: a host that brings its own Guava keeps winning, and our
+    // copy never leaks onto the host classpath.
 
     // Minestom exposes Adventure natively (v5), so it stays unrelocated and is
     // shared with the host. Every other bundled library is relocated to avoid
@@ -61,95 +94,4 @@ java {
 
 tasks.withType(JavaCompile).configureEach {
     options.release = 25
-}
-
-// Only used occasionally for deployment - not needed for normal builds.
-javadoc {
-    title = 'LuckPerms Minestom (v' + project.ext.apiVersion + ')'
-    options.overview = 'javadoc/overview.html'
-    options.encoding = 'UTF-8'
-    options.charSet = 'UTF-8'
-    options.links(
-            'https://checkerframework.org/api/',
-            'https://www.javadocs.dev/org.jetbrains/annotations/26.0.2/'
-    )
-    options.addStringOption('Xdoclint:none', '-quiet')
-    options.addStringOption('-since', '5.0,5.1,5.2,5.3,5.4,5.5')
-
-    if (JavaVersion.current() > JavaVersion.VERSION_1_8) {
-        options.links.add('https://docs.oracle.com/en/java/javase/21/docs/api/')
-    } else {
-        options.links.add('https://docs.oracle.com/javase/8/docs/api/')
-    }
-}
-
-java {
-    withJavadocJar()
-    withSourcesJar()
-}
-
-publishing {
-    repositories {
-        maven {
-            name = 'OneLiteFeatherRepository'
-
-            def releasesRepoUrl = uri('https://repo.onelitefeather.dev/onelitefeather-releases')
-            def snapshotsRepoUrl = uri('https://repo.onelitefeather.dev/onelitefeather-snapshots')
-
-            url = (version.toString().contains('BETA')
-                    || version.toString().contains('ALPHA')
-                    || version.toString().contains('SNAPSHOT')) ? snapshotsRepoUrl : releasesRepoUrl
-
-            credentials(PasswordCredentials) {
-                username = System.getenv('ONELITEFEATHER_MAVEN_USERNAME')
-                password = System.getenv('ONELITEFEATHER_MAVEN_PASSWORD')
-            }
-
-            authentication {
-                basic(BasicAuthentication)
-            }
-        }
-    }
-
-    publications {
-        mavenJava(MavenPublication) {
-            artifactId = 'minestom'
-            groupId = 'net.luckperms'
-
-            from components.java
-
-            pom {
-                name = 'LuckPerms Minestom'
-                description = 'A permissions manager for Minecraft servers.'
-                url = 'https://luckperms.net'
-
-                licenses {
-                    license {
-                        name = 'MIT'
-                        url = 'https://opensource.org/licenses/MIT'
-                    }
-                }
-
-                developers {
-                    developer {
-                        id = 'lucko'
-                        name = 'Luck'
-                        url = 'https://lucko.me'
-                        email = 'git@lucko.me'
-                    }
-                }
-
-                scm {
-                    connection = 'scm:git:https://github.com/OneLiteFeatherNET/LuckPerms.git'
-                    developerConnection = 'scm:git:git@github.com:OneLiteFeatherNET/LuckPerms.git'
-                    url = 'https://github.com/OneLiteFeatherNET/LuckPerms'
-                }
-
-                issueManagement {
-                    system = 'GitHub'
-                    url = 'https://github.com/OneLiteFeatherNET/LuckPerms/issues'
-                }
-            }
-        }
-    }
 }

@@ -26,11 +26,14 @@
 package me.lucko.luckperms.minestom;
 
 import me.lucko.luckperms.common.locale.TranslationManager;
+import me.lucko.luckperms.common.model.User;
 import me.lucko.luckperms.common.sender.Sender;
 import me.lucko.luckperms.common.sender.SenderFactory;
+import me.lucko.luckperms.common.verbose.event.CheckOrigin;
 import net.kyori.adventure.permission.PermissionChecker;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.util.TriState;
+import net.luckperms.api.query.QueryOptions;
 import net.luckperms.api.util.Tristate;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.command.CommandSender;
@@ -74,18 +77,65 @@ public class MinestomSenderFactory extends SenderFactory<LPMinestomPlugin, Comma
         sender.sendMessage(rendered);
     }
 
+    /**
+     * Resolves a permission for an arbitrary Minestom {@link CommandSender}.
+     *
+     * <p>Minestom has no string permission system of its own - {@code Player}
+     * only knows numeric permission levels, and
+     * {@code Player.PLAYER_POINTERS_SUPPLIER} is {@code protected static final}
+     * and resolves nothing but NAME/DISPLAY_NAME/LOCALE. Nobody ever populates
+     * {@link PermissionChecker#POINTER}, so reading it for players would make
+     * every check constantly {@code FALSE}.</p>
+     *
+     * <p>The bridge therefore runs the other way round: for players LuckPerms
+     * asks itself. The Adventure pointer is only consulted for sender types we
+     * do not know - and then via {@code value()} rather than {@code test()},
+     * because {@code test()} is the inherited {@code Predicate} method and
+     * collapses {@code NOT_SET} into {@code FALSE}.</p>
+     */
     @Override
     protected Tristate getPermissionValue(CommandSender sender, String node) {
-        if (sender.getOrDefault(PermissionChecker.POINTER, PermissionChecker.always(TriState.FALSE)).test(node)) {
+        if (sender instanceof Player player) {
+            return getPlayerPermissionValue(player, node);
+        }
+
+        if (sender instanceof ConsoleSender) {
             return Tristate.TRUE;
-        } else {
+        }
+
+        TriState value = sender
+                .getOrDefault(PermissionChecker.POINTER, PermissionChecker.always(TriState.NOT_SET))
+                .value(node);
+
+        return switch (value) {
+            case TRUE -> Tristate.TRUE;
+            case FALSE -> Tristate.FALSE;
+            case NOT_SET -> Tristate.UNDEFINED;
+        };
+    }
+
+    private Tristate getPlayerPermissionValue(Player player, String node) {
+        LPMinestomPlugin plugin = getPlugin();
+
+        User user = plugin.getUserManager().getIfLoaded(player.getUuid());
+        if (user == null) {
+            // The user has not been loaded (yet). This is not the same thing as
+            // "has no permissions" - make it visible instead of silently denying.
+            plugin.getLogger().warn("Permission check for '" + node + "' by " + player.getUsername() + " (" +
+                    player.getUuid() + ") could not be answered: the user is not loaded. Denying.");
             return Tristate.FALSE;
         }
+
+        QueryOptions queryOptions = plugin.getContextManager().getQueryOptions(player);
+        return user.getCachedData()
+                .getPermissionData(queryOptions)
+                .checkPermission(node, CheckOrigin.PLATFORM_API_HAS_PERMISSION)
+                .result();
     }
 
     @Override
     protected boolean hasPermission(CommandSender sender, String node) {
-        return sender.getOrDefault(PermissionChecker.POINTER, PermissionChecker.always(TriState.FALSE)).test(node);
+        return getPermissionValue(sender, node).asBoolean();
     }
 
     @Override

@@ -1,0 +1,126 @@
+plugins {
+    alias(libs.plugins.shadow)
+}
+
+// ---------------------------------------------------------------------------
+// net.luckperms:minestom-extension - the THIRD delivery artifact.
+//
+// Same code and same options/handle API as ':minestom:loader', but wrapped in a
+// `net.onelitefeather:minestom-extensions` entrypoint so it can be dropped into
+// a server's `extensions/` folder instead of being started from `main()`.
+//
+// The jar is the loader's fat JarInJar plus this module's entrypoint class plus
+// the generated `extension.json` - nothing else. In particular the extension
+// system itself is never bundled: the host is the one running it.
+// ---------------------------------------------------------------------------
+
+repositories {
+    mavenCentral()
+    // Where minestom-extensions lives. Public, no credentials - verified
+    // against the 2.1.1 POM/JAR/module.
+    maven { url = 'https://repo.onelitefeather.dev/releases' }
+}
+
+// Kept in one place because the core module and the processor must never drift
+// apart; the upstream BOM exists for the same reason, but importing a platform
+// into `annotationProcessor` as well is more moving parts than two literals.
+def minestomExtensionsVersion = '2.1.1'
+
+dependencies {
+    // -- Everything the host provides ---------------------------------------
+    // The extension system is loaded by the server, not by the extension. Its
+    // `apiElements` variant declares no dependencies at all (the maven-resolver
+    // stack is `implementation`), so this pulls exactly one jar.
+    compileOnly "net.onelitefeather:minestom-extensions:${minestomExtensionsVersion}"
+    compileOnly 'net.minestom:minestom:2026.07.22-26.2'
+    // Extension#getLogger() returns an Adventure ComponentLogger whose info(...)
+    // is inherited from org.slf4j.Logger - without slf4j on the compile class
+    // path javac reports "cannot access Logger".
+    compileOnly 'org.slf4j:slf4j-api:2.0.17'
+
+    // -- extension.json generation ------------------------------------------
+    // @ExtensionInfo is @Retention(SOURCE), so the processor artifact is needed
+    // twice and belongs in the finished jar neither time:
+    //   compileOnly         - makes the annotation visible to javac
+    //   annotationProcessor - puts the processor on the PROCESSOR path
+    // The second line is not optional. Since JDK 23 javac no longer discovers
+    // annotation processors from the compile class path, so with `compileOnly`
+    // alone the build stays green and the jar ships without extension.json -
+    // which the server then rejects with "Missing extension.json in extension".
+    compileOnly "net.onelitefeather:minestom-extensions-processor:${minestomExtensionsVersion}"
+    annotationProcessor "net.onelitefeather:minestom-extensions-processor:${minestomExtensionsVersion}"
+
+    // -- LuckPerms ----------------------------------------------------------
+    // compileOnly, not implementation: the classes reach the jar through the
+    // loader's fat jar in the `from` below, and a resolvable runtime
+    // configuration would additionally list them as <dependency> entries in the
+    // published POM. A consumer must get exactly one self-contained artifact.
+    compileOnly project(':minestom:loader')
+    compileOnly project(':minestom:app')
+}
+
+shadowJar {
+    archiveFileName = "LuckPerms-Minestom-Extension-${project.ext.fullVersion}.jar"
+
+    // An EMPTY classifier, not shadow's default 'all'. `archiveFileName` only
+    // renames the local file; the publication still reads `archiveClassifier`,
+    // and leaving it at 'all' makes the generated POM come out as
+    // <packaging>pom</packaging> with no jar attached at all.
+    archiveClassifier = ''
+
+    // The loader's fat jar, exploded into this one: the flat contract classes
+    // (minestom/app), MinestomLoader, common:loader-utils, net.luckperms:api,
+    // and the opaque nested `luckperms-minestom.jarinjar` which stays a single
+    // file because its extension is not an archive extension.
+    //
+    // Depending on ':minestom:loader' as a project dependency instead would
+    // resolve its THIN jar - MinestomLoader alone, without the nested jar and
+    // without the API - and the extension would die on the first class load.
+    from {
+        project(':minestom:loader').tasks.shadowJar.archiveFile
+    }
+
+    // Two MANIFEST.MFs and two LICENCE files meet here (ours and the loader's).
+    // Ours is the one that describes this artifact.
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// Publish the fat jar as the main artifact, exactly like ':minestom:library'
+// does. The thin jar carries one class and would be useless to a consumer.
+// Doing it through the java component's outgoing artifacts keeps this inside
+// this build script - the shared publishing block in the root build.gradle
+// needs no special case for this module.
+configurations.apiElements.outgoing.artifacts.clear()
+configurations.runtimeElements.outgoing.artifacts.clear()
+configurations.apiElements.outgoing.artifact(tasks.named('shadowJar'))
+configurations.runtimeElements.outgoing.artifact(tasks.named('shadowJar'))
+
+// ...and drop shadow's own `-all` variant, which would otherwise show up in the
+// Gradle module metadata as a second, misleading way to consume this artifact.
+components.java.withVariantsFromConfiguration(configurations.shadowRuntimeElements) {
+    skip()
+}
+
+artifacts {
+    archives shadowJar
+}
+
+tasks.named('assemble') {
+    dependsOn tasks.named('shadowJar')
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+
+    // The processor takes the version from the build rather than from the
+    // annotation, so `extension.json` can never disagree with the artifact it
+    // sits in. Without this the descriptor omits the field and the runtime
+    // reports the extension as "Unspecified".
+    options.compilerArgs.add("-Aminestom.extension.version=${project.ext.fullVersion}".toString())
+}

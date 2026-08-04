@@ -134,8 +134,11 @@ subprojects {
                 maven {
                     name = 'OneLiteFeatherRepository'
 
-                    def releasesRepoUrl = uri('https://repo.onelitefeather.dev/onelitefeather-releases')
-                    def snapshotsRepoUrl = uri('https://repo.onelitefeather.dev/onelitefeather-snapshots')
+                    // The public paths, so consumers can resolve these artifacts without
+                    // OneLiteFeather credentials. The onelitefeather-* paths are the
+                    // credential-gated ones and answer 401 to anonymous requests.
+                    def releasesRepoUrl = uri('https://repo.onelitefeather.dev/releases')
+                    def snapshotsRepoUrl = uri('https://repo.onelitefeather.dev/snapshots')
 
                     url = (proj.version.toString().contains('BETA')
                             || proj.version.toString().contains('ALPHA')

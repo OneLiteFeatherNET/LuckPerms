@@ -34,14 +34,14 @@ import me.lucko.luckperms.common.plugin.classpath.JarInJarClassPathAppender;
 import me.lucko.luckperms.common.plugin.logging.PluginLogger;
 import me.lucko.luckperms.common.plugin.logging.Slf4jPluginLogger;
 import me.lucko.luckperms.common.plugin.scheduler.SchedulerAdapter;
+import me.lucko.luckperms.minestom.app.DependencyMode;
 import me.lucko.luckperms.minestom.app.LuckPermsApplication;
+import me.lucko.luckperms.minestom.app.LuckPermsMinestomOptions;
 import net.luckperms.api.platform.Platform;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.entity.Player;
-import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -50,7 +50,6 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 
 public class LPMinestomBootstrap implements LuckPermsBootstrap, LoaderBootstrap, BootstrappedWithLoader {
-    private final Slf4jPluginLogger logger = new Slf4jPluginLogger(LoggerFactory.getLogger("luckperms"));
 
     // Latches for enable and load
     private final CountDownLatch loadLatch = new CountDownLatch(1);
@@ -60,6 +59,8 @@ public class LPMinestomBootstrap implements LuckPermsBootstrap, LoaderBootstrap,
      * The plugin instance
      */
     private final LuckPermsApplication loader;
+    private final LuckPermsMinestomOptions options;
+    private final Slf4jPluginLogger logger;
     private final LPMinestomPlugin plugin;
     private final MinestomSchedulerAdapter schedulerAdapter;
     private final ClassPathAppender classPathAppender;
@@ -68,9 +69,18 @@ public class LPMinestomBootstrap implements LuckPermsBootstrap, LoaderBootstrap,
 
     public LPMinestomBootstrap(LuckPermsApplication loader) {
         this.loader = loader;
+        this.options = loader.getOptions();
+        this.logger = new Slf4jPluginLogger(this.options.logger());
+        this.classPathAppender = createClassPathAppender(getClass().getClassLoader(), this.options, this.logger);
         this.plugin = new LPMinestomPlugin(this);
         this.schedulerAdapter = new MinestomSchedulerAdapter(this);
-        this.classPathAppender = createClassPathAppender(getClass().getClassLoader(), this.logger);
+    }
+
+    /**
+     * @return the options this instance was configured with
+     */
+    public LuckPermsMinestomOptions getOptions() {
+        return this.options;
     }
 
     /**
@@ -82,12 +92,15 @@ public class LPMinestomBootstrap implements LuckPermsBootstrap, LoaderBootstrap,
      * JarInJar appender would throw {@link IllegalArgumentException} there, so a
      * no-op appender is used.</p>
      *
-     * <p><b>Invariant:</b> the no-op appender is only correct as long as
-     * LuckPerms does not have to download anything at runtime. Everything it
-     * needs must already be on the class path in that case, otherwise
-     * downloaded dependencies are silently discarded.</p>
+     * <p><b>Invariant, enforced here:</b> a no-op appender is only correct as
+     * long as LuckPerms does not have to load anything at runtime. Combining it
+     * with {@link DependencyMode#DOWNLOAD} or {@link DependencyMode#JAR_IN_JAR}
+     * is a silent total failure - the jars are downloaded, verified, relocated
+     * and then dropped on the floor, and the first class that needs them fails
+     * with a {@code NoClassDefFoundError} that points nowhere near the cause.
+     * That combination is rejected outright.</p>
      */
-    private static ClassPathAppender createClassPathAppender(ClassLoader classLoader, PluginLogger logger) {
+    private static ClassPathAppender createClassPathAppender(ClassLoader classLoader, LuckPermsMinestomOptions options, PluginLogger logger) {
         try {
             if (classLoader instanceof JarInJarClassLoader) {
                 return new JarInJarClassPathAppender(classLoader);
@@ -96,14 +109,26 @@ public class LPMinestomBootstrap implements LuckPermsBootstrap, LoaderBootstrap,
             // loader-utils is not on the class path at all - definitely not JarInJar
         }
 
-        logger.warn("LuckPerms is not running under a JarInJarClassLoader (" + classLoader.getClass().getName() +
-                "). Runtime dependency downloading is not available - every dependency must already be on the " +
-                "class path.");
+        if (options.dependencyMode() != DependencyMode.PRELOADED) {
+            throw new IllegalStateException(
+                    "LuckPerms is running under " + classLoader.getClass().getName() + ", not a " +
+                    "JarInJarClassLoader, so it has no way to add jars to the class path at runtime - but " +
+                    "DependencyMode." + options.dependencyMode() + " requires exactly that. Dependencies would " +
+                    "be resolved and then silently discarded, and LuckPerms would fail later with an " +
+                    "unrelated-looking NoClassDefFoundError.\n" +
+                    "Use DependencyMode.PRELOADED and make sure every LuckPerms dependency is on the class " +
+                    "path (this is what the flat library packaging does), or run LuckPerms through the " +
+                    "JarInJar loader (MinestomLoader.create(options)).");
+        }
+
+        logger.info("Running outside a JarInJarClassLoader (" + classLoader.getClass().getName() +
+                "); dependencies are expected to be on the class path already.");
         return file -> {}; // ClassPathAppender is a functional interface
     }
 
     @Override
     public void onLoad() {
+        this.startupTime = Instant.now();
         try {
             this.plugin.load();
         } finally {
@@ -113,7 +138,9 @@ public class LPMinestomBootstrap implements LuckPermsBootstrap, LoaderBootstrap,
 
     @Override
     public void onEnable() {
-        this.startupTime = Instant.now();
+        if (this.startupTime == null) {
+            this.startupTime = Instant.now();
+        }
         try {
             this.plugin.enable();
         } finally {
@@ -128,7 +155,7 @@ public class LPMinestomBootstrap implements LuckPermsBootstrap, LoaderBootstrap,
 
     @Override
     public PluginLogger getPluginLogger() {
-        return logger;
+        return this.logger;
     }
 
     @Override
@@ -176,9 +203,20 @@ public class LPMinestomBootstrap implements LuckPermsBootstrap, LoaderBootstrap,
         return MinecraftServer.VERSION_NAME;
     }
 
+    /**
+     * The directory LuckPerms keeps config.yml, its storage and downloaded files
+     * in.
+     *
+     * <p>This used to be a hard-coded {@code Paths.get("data")} inherited from
+     * the standalone platform, which meant LuckPerms unconditionally wrote into
+     * the working directory of a foreign server process. It now comes from
+     * {@link LuckPermsMinestomOptions}, which resolves it from the builder, the
+     * {@code luckperms.data-dir} system property, the {@code LUCKPERMS_DATA_DIR}
+     * environment variable or the old default, in that order.</p>
+     */
     @Override
     public Path getDataDirectory() {
-        return Paths.get("data").toAbsolutePath();
+        return this.options.dataDirectory();
     }
 
     @Override

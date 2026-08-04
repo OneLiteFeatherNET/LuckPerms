@@ -33,6 +33,15 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # The standalone module holds this fork's integration tests. They run
+      # against ':common' - the code the Adventure 5 migration touched - so they
+      # are the regression gate for the Minestom platform too. Tests tagged
+      # 'docker' are excluded unless -PdockerTests is passed.
+      - name: Run tests
+        run: ./gradlew :standalone:test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # This fork ships only the Minestom platform (LuckPerms is on Adventure 5 /
       # Minestom 2026; the other platforms stay on Adventure 4 and are not built).
       - name: Build Minestom loader

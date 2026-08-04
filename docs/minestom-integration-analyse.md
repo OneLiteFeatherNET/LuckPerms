@@ -535,6 +535,14 @@ Ein Test, der die gebundelte Dependency-Liste gegen `Dependency` / `StorageType`
 
 ### (a) Als Library mit ShadowJar
 
+> **Korrektur 2026-08-04 (Runde 4): die beiden Snippets in diesem Abschnitt sind Planungsstand und kompilieren nicht gegen die umgesetzte API.** Vier Abweichungen, jeweils am gebauten Artefakt geprüft:
+> - `LuckPermsMinestom.builder()` liefert einen `LuckPermsMinestomOptions.Builder`; dessen `build()` gibt **Options** zurück, kein Handle und kein `onLoad()`. Richtig ist `LuckPermsMinestom.create(LuckPermsMinestom.builder()…build()).load().enable()`.
+> - `net.luckperms:minestom-bom` existiert nicht — die Publikationsliste in `build.gradle` kennt nur `api`, `common`, `minestom`, `minestom-app`, `minestom-loader`, `minestom-library`. Ein BOM wurde nicht gebaut; die POMs von `minestom-loader` und `minestom-library` haben **null** `<dependency>`-Einträge, es gibt also nichts zu pinnen.
+> - Die Toolchain-Zeile („21 reicht nach Schritt 7") ist überholt: `minestom`, `minestom/app`, `minestom/loader` und `minestom/library` stehen alle auf `options.release = 25`; die Klassen im Artefakt tragen Major-Version 69. Konsumenten brauchen Java 25.
+> - Die Koordinate `5.6-SNAPSHOT` und die Snapshot-Repo-URL gelten nur bis zur ersten Release-Please-Release (siehe 7.5).
+>
+> Die kompilierfähigen Fassungen beider Wege stehen in `minestom/README.md`.
+
 ```kotlin
 // build.gradle.kts des Konsumenten
 plugins {
@@ -614,7 +622,9 @@ public static void main(String[] args) {
 ```
 
 **Was das technisch möglich macht (heute alles blockiert):**
-Lambda-`ClassPathAppender` statt des unbedingt werfenden `JarInJarClassPathAppender` (L-1) · `PreloadedDependencyManager` → kein `libraries.luckperms.net`, kein ASM/jar-relocator-Nachladen, kein `data/libs` · Guava reloziert im Fat-Jar (B-1) · `net.luckperms:common` nicht mehr publiziert → gson 2.7 / guava 19.0 / Adventure-compile-Scopes verschwinden (L-3) · `options.release = 21` → auflösbar für Java-21-Projekte (L-5) · `config.yml` unter `luckperms/` → keine Kollision beim Shading (W-7) · flaches Artefakt → Shading bricht die Bootstrap-Reflection nicht mehr (L-4).
+Lambda-`ClassPathAppender` statt des unbedingt werfenden `JarInJarClassPathAppender` (L-1) · `PreloadedDependencyManager` → kein `libraries.luckperms.net`, kein ASM/jar-relocator-Nachladen, kein `data/libs` · Guava reloziert im Fat-Jar (B-1) · `net.luckperms:common` nicht mehr publiziert → gson 2.7 / guava 19.0 / Adventure-compile-Scopes verschwinden (L-3) · `options.release = 21` → auflösbar für Java-21-Projekte (L-5) · ~~`config.yml` unter `luckperms/` → keine Kollision beim Shading (W-7)~~ · flaches Artefakt → Shading bricht die Bootstrap-Reflection nicht mehr (L-4).
+
+> **Korrektur 2026-08-04 (Runde 4):** W-7 ist **nicht** umgesetzt. Im gebauten `minestom-library-5.6.0.jar` liegt `config.yml` (33 116 B) weiterhin im **Wurzelverzeichnis** des Jars — `LuckPermsBootstrap#getResourceStream` sucht per `getClassLoader().getResourceAsStream("config.yml")` genau dort, ein Umzug nach `luckperms/config.yml` bräuchte also auch eine Änderung an `resolveConfig`/`getResourceStream` in `common`. Die Kollisionsgefahr beim Shading besteht damit unverändert: ein Konsument mit eigener `config.yml` im Jar-Wurzelverzeichnis verliert eine der beiden Dateien. In `minestom/README.md` als bekannte Grenze dokumentiert.
 
 ---
 

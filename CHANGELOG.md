@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.0.1](https://github.com/OneLiteFeatherNET/LuckPerms/compare/v6.0.0...v6.0.1) (2026-08-04)
+
+
+### Bug Fixes
+
+* publish net.luckperms:api so consumers can resolve it ([af0d08e](https://github.com/OneLiteFeatherNET/LuckPerms/commit/af0d08ee6d4ddb621d655825115a46c84233e3d7))
+* publish net.luckperms:api so consumers can resolve minestom-app ([#6](https://github.com/OneLiteFeatherNET/LuckPerms/issues/6)) ([af0d08e](https://github.com/OneLiteFeatherNET/LuckPerms/commit/af0d08ee6d4ddb621d655825115a46c84233e3d7))
+
 ## [6.0.0](https://github.com/OneLiteFeatherNET/LuckPerms/compare/v5.6.0...v6.0.0) (2026-08-04)
 
 

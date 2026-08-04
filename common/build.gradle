@@ -3,7 +3,6 @@ plugins {
     id("jacoco")
     alias(libs.plugins.blossom)
 }
-group = 'me.lucko.luckperms'
 
 // Adventure 5 requires Java 21+, so this fork's common targets 21 (we only
 // ship the Minestom platform, which runs on Java 21+).

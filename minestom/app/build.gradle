@@ -2,7 +2,6 @@ plugins {
     alias(libs.plugins.blossom)
     id("java-library")
 }
-group = 'me.lucko.luckperms'
 
 java {
     toolchain {

@@ -5,7 +5,7 @@ plugins {
 repositories {
     mavenCentral()
 }
-group = 'me.lucko.luckperms'
+
 dependencies {
     implementation project(':common')
     compileOnly project(':common:loader-utils')
@@ -28,11 +28,10 @@ shadowJar {
 
     dependencies {
         // Bundle only the LuckPerms implementation into the jarinjar.
-        // NOTE: 'net.luckperms:.*' never matches - build.gradle:15 sets the
-        // group of every subproject to 'me.lucko.luckperms'. Kept for parity
-        // with the other platform modules.
+        // The group has to match the one the root build.gradle assigns to every
+        // subproject - project dependencies are resolved under it, so a stale
+        // group here silently produces an empty jarinjar.
         include(dependency('net.luckperms:.*'))
-        include(dependency('me.lucko.luckperms:.*'))
         include(dependency('com.google.guava:.*'))
     }
 

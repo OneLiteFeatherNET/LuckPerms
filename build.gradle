@@ -12,7 +12,13 @@ subprojects {
     apply plugin: 'maven-publish'
     apply plugin: 'dev.yumi.gradle.licenser'
 
-    group = 'me.lucko.luckperms'
+    // Must match the `groupId` the publications use. Upstream keeps these two
+    // apart (`me.lucko.luckperms` here, `net.luckperms` in the publication),
+    // which makes every project dependency in a generated POM depend on
+    // Gradle's project-dependency coordinate mapping to come out right, and
+    // makes the `include(dependency('net.luckperms:.*'))` shadow filters match
+    // nothing. Keeping them identical removes both traps.
+    group = 'net.luckperms'
     // The single source of truth for the version. Release Please rewrites this
     // line (and only this line) via the `generic` extra-files updater; see
     // release-please-config.json. Do not bump it by hand.

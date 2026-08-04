@@ -1,5 +1,3 @@
-group = 'me.lucko.luckperms'
-
 tasks.withType(JavaCompile).configureEach {
     options.release = 8
 }

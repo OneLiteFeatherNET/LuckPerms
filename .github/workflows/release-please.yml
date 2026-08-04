@@ -34,5 +34,8 @@ jobs:
       # This fork ships only the Minestom platform - the other platform modules
       # are not part of the build (see settings.gradle).
       build-task: ":minestom:loader:build"
-      publish-task: ":minestom:publish :minestom:app:publish :minestom:loader:publish"
+      # Every module listed in olfPublications in the root build. :api and :common are
+      # deliberately absent - they are internal, and publishing common would push its
+      # gson/guava/adventure compile scopes onto consumers.
+      publish-task: ":minestom:publish :minestom:app:publish :minestom:loader:publish :minestom:library:publish :minestom:extension:publish"
     secrets: inherit

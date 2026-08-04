@@ -1301,6 +1301,44 @@ common/loader/LoaderBootstrap              ✓  <- der Befund aus 7.8
 
 **Was noch fehlt, ist der Nachweis:** ein Smoke-Test, der einen echten Server aus diesem flachen 40-MiB-Jar mit `LuckPermsMinestom.create(...dependencyMode(PRELOADED)...)` hochfährt. G hat die flache Route nur bis `create()` belegt und dabei ein flach ausgepacktes jarinjar verwendet, nicht dieses Artefakt. Das ist der nächste Schritt — zusammen mit `minestom/extension`.
 
+### 7.10 `minestom/extension` — die Extension-Route ist real
+
+Das Modul, das seit Beginn als Attrappe im Baum lag (`extension.json` zeigte auf eine nie existierende Klasse), gibt es jetzt wirklich. Zwei Dateien plus je eine Zeile in `settings.gradle` und der `olfPublications`-Map. Publiziert als `net.luckperms:minestom-extension`; alle Dependencies `compileOnly`, POM ohne `<dependencies>`.
+
+**`extension.json` wird generiert, nicht geschrieben** — der Fehler von damals ist strukturell ausgeschlossen:
+
+```json
+{
+  "name": "LuckPerms",
+  "entrypoint": "me.lucko.luckperms.minestom.extension.LuckPermsExtension",
+  "version": "5.6.0",
+  "authors": ["Luck", "OneLiteFeatherNET"]
+}
+```
+
+**Die Processor-Pfad-Falle wurde experimentell bestätigt:** Mit auskommentierter `annotationProcessor`-Zeile läuft der Build auf `BUILD SUCCESSFUL` durch — und `extension.json` fehlt im Jar. Der Server lehnt es dann mit `Missing extension.json` ab. Seit JDK 23 findet `javac` Processors nicht mehr über den Compile-Classpath; `compileOnly` allein erzeugt stillschweigend ein kaputtes Artefakt.
+
+**Lifecycle:** `preInitialize()` → `create(options)` + `load()`, `initialize()` → `enable()`, `terminate()` → `close()`. Am Code von `minestom-extensions` begründet: `preInitialize()` läuft im Konstruktor von `ExtensionBootstrap.init()`, direkt nach `MinecraftServer.init()` — genau das verlangt `LPMinestomPlugin.setupSenderFactory()`. `initialize()` läuft unmittelbar vor dem Port-Bind. Der Split ist nicht kosmetisch: `gotoInit()` iteriert eine topologisch sortierte Map, eine Extension mit `dependencies = {"LuckPerms"}` sieht in ihrem `initialize()` also bereits ein laufendes LuckPerms.
+
+#### Korrektur: `DOWNLOAD`, nicht `JAR_IN_JAR`
+
+Die Skizze in Abschnitt 6b nannte `DependencyMode.JAR_IN_JAR` für die Extension. **Das ist falsch.** `DependencyRepository.JAR_IN_JAR` (`common/.../DependencyRepository.java:94-101`) liest `luckperms/deps/<name>.jarinjar` per `getResourceAsStream`; verifiziert sind dort **0 Einträge** — sowohl im äußeren Extension-Jar als auch im entpackten `luckperms-minestom.jarinjar`. Der Modus stürbe beim ersten Dependency mit „returned null stream". `PRELOADED` scheidet aus, weil die Extension den JarInJar-Loader trägt und der flache Dependency-Satz nicht gebundelt ist. Bleibt `DOWNLOAD` — das Upstream-Verhalten, nach `extensions/LuckPerms/libs`.
+
+#### Classloader: die Sichtbarkeit hängt am Host
+
+Mit einem JVM-Harness über die echte Loader-Kette Host → Extension → JarInJar am gebauten Artefakt nachgestellt, **14/14 PASS**. Kernergebnis:
+
+> **Der Host sieht `LuckPermsProvider.get()` genau dann, wenn er `net.luckperms:api` selbst deklariert.** Das Extension-Jar trägt 236 API-Einträge als Fallback; ohne Host-Deklaration läuft LuckPerms voll funktionsfähig, ist für Host-Code aber unsichtbar (`ClassNotFoundException`).
+
+Das ist die gewollte Degradation, keine Panne — aber es hat zwei Folgen, die in die Konsumenten-Doku gehören:
+
+- **`LuckPermsCommandConditions` ist für den Host nicht direkt nutzbar**, solange er `net.luckperms:minestom-app` nicht selbst deklariert. Tut er es, greift Parent-First und beide Seiten teilen dieselbe Klasse.
+- **Der Instanz-Lock schützt nur innerhalb eines Class-Loading-Realms.** `LuckPermsMinestomInstanceLock` hält seinen `AtomicReference` statisch; ohne Host-seitiges `minestom-app` ist die Klasse extension-lokal, und ein Host, der zusätzlich in `main()` `MinestomLoader.create(...)` aufruft, bekäme **zwei Instanzen ohne Fehlermeldung**. Auch das löst die Host-Deklaration.
+
+#### CI publizierte die neuen Module nicht
+
+`.github/workflows/release-please.yml` listete `:minestom :minestom:app :minestom:loader` — weder `:minestom:library` noch `:minestom:extension`. Beide wären gebaut, aber nie veröffentlicht worden. Ergänzt und gegen die `olfPublications`-Map abgeglichen; `:api` und `:common` bleiben bewusst außen vor (7.7.2).
+
 ### Risiken bei der Umsetzung
 
 - **Guava-Relocation kann eine API-Grenze brechen.** `common/build.gradle:90` excludet Guava explizit aus `net.kyori:event-api` — das deutet auf früheren Ärger hin. Vor dem Merge mit einem echten Konsumenten-Smoke-Test verifizieren; Fallback ist ein Bump auf modernes Guava als deklarierte Dependency (Muster: `standalone/app/build.gradle:18` nutzt 33.4.8-jre).

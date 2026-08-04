@@ -854,6 +854,8 @@ Dasselbe Muster bei `TranslatableComponent`, `KeybindComponent`, `ScoreComponent
 
 *Einschränkung: verglichen wurde die öffentliche API per `javap`. Verhaltensänderungen innerhalb bestehender Methoden erfasst das nicht — der Smoke-Test aus Schritt 0 bleibt die Absicherung.*
 
+> **Nachtrag 2026-08-04 — inzwischen auf Integrationsebene belegt.** Nachdem `standalone/` wieder im Build ist (7.7.1), läuft dessen Suite gegen Adventure `5.2.0`: **33/33 grün, 0 Failures**, inklusive der vier Flatfile-Formate und H2/SQLite. Damit ist die Additivität nicht mehr nur aus Signaturen abgeleitet, sondern durch die vollständige LuckPerms-Integrationstestsuite bestätigt. Der oben genannte Vorbehalt zu Verhaltensänderungen ist damit weitgehend ausgeräumt.
+
 #### 7.3.3 O-4 — Gson-Konflikt: bleibt ungeklärt, wird aber gegenstandslos
 
 Der Auftraggeber kann nicht mehr rekonstruieren, welche Artefaktversion die betroffenen Projekte gezogen haben. Das ist verkraftbar: Der Konflikt ist im aktuell gebauten Jar nicht reproduzierbar (0 Einträge unter `com/google/gson`), und der wahrscheinlichste verbleibende Pfad — die Metadata von `net.luckperms:common` — verschwindet mit der Empfehlung, `common` gar nicht mehr zu publizieren. **Praktische Regel bis dahin: den `exclude` im Konsumenten stehen lassen.** Er kostet nichts und schützt gegen einen Fall, den niemand mehr nachstellen kann.
@@ -1016,13 +1018,34 @@ Der Grund für den geringen Aufwand: `standalone` berührt von Adventure nur `Co
 
 **Empfehlung: hochziehen.** Das schließt W-15 (CI führt keinerlei Tests aus) mit elf Zeilen und gibt allen weiteren Schritten ein Sicherheitsnetz gegen Regressionen in `common/`. Es gehört direkt hinter Schritt 0.
 
-#### 7.7.2 Neuer Befund: die publizierten POMs sind unauflösbar
+> **Umgesetzt 2026-08-04.** Zwei Korrekturen an der Messung:
+> - Es sind **12 Zeilen, nicht 11**: `standalone/loader/build.gradle` braucht ebenfalls `options.release = 21`. Der Messung entging das, weil `:standalone:test` den Loader nicht zieht — `:standalone:loader:build` bricht sonst, da javac die Class-Files von `:standalone:app` (Version 65) unter release 17 nicht lesen kann.
+> - **Der Import-Fix war doch nötig.** `:standalone:compileJava` scheiterte mit vier Fehlern in `LPStandaloneBootstrap.java`. Ursache laut `git diff`: Commit `971679663` („Upgrade Minestom dependency…") hat die Imports für `SchedulerAdapter`/`JavaSchedulerAdapter` entfernt — das Muster eines IDE-„Optimize Imports", das über ein Modul lief, welches gar nicht kompiliert wurde. Weil `standalone` aus dem Build geflogen war, hat es nie jemand bemerkt. **Das ist exakt der Schaden, den W-15 beschreibt** — und der beste Beleg dafür, warum dieser Schritt sich lohnt.
+>
+> Ergebnis: **33/33 Tests grün**, 0 Failures, 0 Skips (`CommandsIntegrationTest` 19, `StorageIntegrationTest` 10, `IntegrationTest` 3, `ImportExportIntegrationTest` 1). **Keine Adventure-5-Regression in `common/`** — die Migration hält der Integrationstestsuite stand. CI führt die Suite jetzt als eigene Step vor dem Loader-Build aus; die vorhandene `Publish test report`-Step sammelt dadurch erstmals tatsächlich Ergebnisse ein statt ins Leere zu laufen.
 
-Präzisierung des früheren Befunds „`net.luckperms:minestom` ist nicht auflösbar publiziert" — die Ursache ist jetzt bekannt:
+#### 7.7.2 ~~Neuer Befund: die publizierten POMs sind unauflösbar~~ — WIDERLEGT
 
-Root `build.gradle:14` setzt `group = 'me.lucko.luckperms'`; nur die *Publications* überschreiben auf `groupId = 'net.luckperms'`. `:minestom` und `:minestom:app` publizieren aber `from components.java`, und deren `implementation project(':api')` / `project(':common')` landen dadurch als **`me.lucko.luckperms:api:5.6-SNAPSHOT`** bzw. **`me.lucko.luckperms:common:5.6-SNAPSHOT`** im POM. Unter diesen Koordinaten existiert nirgends ein Artefakt. Verschärfend: CI publiziert `:api` und `:common` ohnehin nicht — auch mit korrigierter Gruppe fehlten die Artefakte im Repo.
+> **Korrektur 2026-08-04.** Dieser Abschnitt behauptete, `:minestom` und `:minestom:app` schrieben ihre internen Dependencies als `me.lucko.luckperms:api` / `me.lucko.luckperms:common` ins POM, weil Root `build.gradle:14` `group = 'me.lucko.luckperms'` setzt und nur die Publications auf `net.luckperms` überschreiben. **Das ist falsch**, gefunden bei der Umsetzung und unabhängig nachgeprüft.
 
-**Fix:** `group = 'net.luckperms'` für `:api`/`:common` setzen, gemeinsam mit dem Publishing-Hoist (unten). Gehört zwingend vor die erste 6.0.0-Publikation.
+**Beleg.** Die `5.6-SNAPSHOT`-POMs in `~/.m2` stammen vom Stand *vor* jeder Änderung dieser Runde — also genau von dem Zustand, gegen den der Befund geschrieben wurde:
+
+```
+common-5.6-SNAPSHOT.pom       ->  dep net.luckperms:api
+minestom-5.6-SNAPSHOT.pom     ->  dep net.luckperms:common
+minestom-app-5.6-SNAPSHOT.pom ->  dep net.luckperms:api
+```
+
+Kein einziges `me.lucko.luckperms:` als Dependency.
+
+**Warum.** Gradles `ProjectDependencyPublicationResolver` bildet `project(':api')` **nicht** auf `project.group:project.name` ab, sondern auf die Koordinaten der `MavenPublication` des Zielprojekts. Da `:api` und `:common` je eine `mavenJava`-Publication mit `groupId = 'net.luckperms'` deklarieren, gewinnt diese — die Root-`group` wirkt an dieser Stelle gar nicht. Gilt gleichermaßen für die Gradle Module Metadata.
+
+**Was von dem Befund bleibt.** Die Gruppen-Angleichung wurde trotzdem umgesetzt, aber als *Härtung*, nicht als Reparatur eines Live-Schadens:
+
+- **`:common:loader-utils` hat keine Publication.** Für dieses Modul greift die Rückfallebene `group:name` — sie hätte `me.lucko.luckperms:loader-utils` ergeben. Heute folgenlos, weil das Modul überall `compileOnly` eingebunden ist; sobald es einmal publiziert würde, wäre es eine Falle.
+- **Der `shadowJar`-Filter musste zwingend mitwandern.** `minestom/build.gradle` filterte auf `me.lucko.luckperms:.*`, der danebenstehende `net.luckperms:.*` war ausweislich des eigenen Kommentars tot. Mit `group = 'net.luckperms'` kehrt sich das exakt um — **ohne Migration wäre das jarinjar leer gewesen.** Verifiziert: `luckperms-minestom.jarinjar` ist vor und nach dem Umbau inhaltsgleich (Guava 1986, `me/lucko/luckperms` 778, `net/luckperms/api` 236 Einträge).
+
+**Echter Restposten (Upstream-Erbe, außerhalb dieser Runde):** `common`s POM führt `me.lucko.configurate:configurate-toml:3.7` — eine Koordinate von `repo.lucko.me`, **nicht auf Maven Central**. Jeder Konsument von `net.luckperms:common` braucht dieses Repository. Das ist ein weiteres Argument für die Empfehlung, `common` gar nicht zu publizieren.
 
 #### 7.7.3 Publishing-Hoist: konkreter Patch, −450 Zeilen
 
@@ -1043,6 +1066,16 @@ Darin einmalig: der `javadoc`-Block (Titel aus `displayName`), `java { withJavad
 **Effekt:** 6 Kopien à ~90 Zeilen → 1 × ~95 Zeilen (**−450 Zeilen**). `api/build.gradle` und `common/loader-utils/build.gradle` werden Upstream-identisch; `api/build.gradle` bleibt danach in genau **zwei** Zeilen divergent. Wichtig: `project.version = '5.5'` dort **nicht** restaurieren — sonst publiziert der Fork auf die echten Upstream-Koordinaten `net.luckperms:api:5.5`.
 
 Zusätzlich: **`olfExtraPublishPaths` (`build.gradle:77-132`) ist toter Code** — alle 25 gelisteten Pfade fehlen in `settings.gradle`, `./gradlew projects` kennt nur 6 Projekte. Ersatzlos löschen.
+
+> **Umgesetzt 2026-08-04.** Bilanz: **−496/+102 Zeilen**. `api/build.gradle` schrumpft von 105 auf **14 Zeilen** und ist damit bis auf die bewusst nicht restaurierte `project.version = '5.5'`-Zeile upstream-identisch; `common`, `minestom`, `minestom/app` und `minestom/loader` verlieren je ~90 Zeilen. `olfExtraPublishPaths` ist gelöscht.
+>
+> Zwei Dinge kamen bei der Umsetzung dazu:
+> - **Die fünf modul-lokalen `group = 'me.lucko.luckperms'`-Zeilen mussten entfernt werden**, nicht umgeschrieben: Das Root-`subprojects{}` läuft *vor* dem Modul-Skript, eine stehengelassene Modulzeile hätte die Root-Zuweisung wieder überschrieben.
+> - **Nebenbei gefixt:** `common/build.gradle` trug den Copy-Paste-Javadoc-Titel „LuckPerms Minestom Loader". Der Titel kommt jetzt aus der Map (verifiziert in `common/build/tmp/javadoc/javadoc.options`: `-doctitle 'LuckPerms Common (v5.6)'`). Genau die Art Fehler, die Duplikation erzeugt und ein Hoist strukturell verhindert.
+>
+> Verifiziert aus `clean` + geleertem lokalem Repo: `publishToMavenLocal` erzeugt 28 Dateien, alle fünf Module mit korrekten Koordinaten, javadoc- und sources-Jars vorhanden. Release Please blieb unangetastet — `git diff` auf `build.gradle` enthält keine Zeile mit dem Versions-Marker.
+>
+> **Vormerken:** Die nicht gebauten Module (`bukkit`, `fabric`, `standalone`, `hytale`, …) filtern in ihren `shadowJar`-Blöcken weiterhin auf `me.lucko.luckperms:.*`. Kehrt eines davon in `settings.gradle` zurück, muss sein Filter mitwandern.
 
 #### 7.7.4 Rollback-Strategie: auf die Merge-Base, nicht auf Upstream-HEAD
 
@@ -1066,6 +1099,29 @@ Fünf Commits, 10 Dateien, +297/−29. Der Smoke-Test lief gegen einen echten Mi
 **Neuer Blocker (B-4): `LuckPermsCommandConditions` ist auf der Loader-Route für Hosts nicht erreichbar.** Reproduziert als `ClassNotFoundException`. Die Klasse liegt in `minestom/` und damit im `.jarinjar`; der App-Classloader des Hosts sieht sie nicht. Die Motivation „der Host hängt die Condition an eigene Commands" ist auf dem heute ausgelieferten Artefakt **nicht einlösbar** — für `/lp` selbst und für die künftige flache Library-Route funktioniert sie.
 
 Das ist genau die Classloader-Grenze aus 7.3.4, jetzt an einem konkreten Symptom. **Auflösung gehört in Schritt 3/4:** Die Klasse muss nach `minestom/app` wandern, dem Kontraktmodul, das per Definition beidseitig der Classloader-Grenze sichtbar ist (Minestom dort als `compileOnly`). Das war im Plan implizit, stand aber nirgends explizit — deshalb landete sie zunächst falsch.
+
+#### 7.7.7 B-4 gelöst — und drei Erkenntnisse zum Classloader-Modell
+
+Die Klasse liegt jetzt in `minestom/app/src/main/java/me/lucko/luckperms/minestom/app/LuckPermsCommandConditions.java`. Sie verwendet ausschließlich `net.luckperms:api`, Minestom und Adventure; die Auflösung läuft lazy pro Aufruf über `LuckPermsProvider.get()`, mit abgefangener `IllegalStateException` → vor dem Start „nur Konsole" statt Exception.
+
+**Am gebauten `LuckPerms-Minestom-5.6.0.jar` verifiziert** (nach dem Merge unabhängig nachgeprüft):
+
+| Prüfung | Ergebnis |
+|---|---|
+| `me/lucko/luckperms/minestom/app/LuckPermsCommandConditions.class` im äußeren Jar | vorhanden → host-sichtbar |
+| `net/luckperms/api/`-Einträge im äußeren Jar | 236 → API host-sichtbar |
+| `net/minestom/`-Einträge im äußeren Jar | **0** → `compileOnly` propagiert nicht in den ShadowJar |
+| `me/lucko/luckperms/minestom/LPMinestomPlugin` im äußeren Jar | **0** → Grenze intakt, der Erfolg ist nicht durch versehentliches Abflachen erkauft |
+
+**Host-seitiger Smoke-Test: 15/15 PASS.** Der Host importiert die Klasse zur Compile-Zeit, registriert **vor** `MinestomLoader.start()` einen **eigenen** Command mit der Condition; Spieler ohne Node → Command läuft nicht, nach `user.data().add(...)` → läuft, negierter Node bleibt denied, Konsole passiert. Die bestehende `/lp`-Suite bleibt bei 10/10.
+
+**Drei Erkenntnisse, die über B-4 hinausgehen:**
+
+1. **`LuckPermsProvider.class.getClassLoader()` ist der AppClassLoader des Hosts.** Die API-Zweitkopie im jarinjar ist wegen Parent-First-Delegation tot; die Registrierung aus dem jarinjar landet auf der Host-Kopie. Das bestätigt 7.3.4 am laufenden System und **widerlegt die zentrale These der Extension-First-Option endgültig** („die API im jarinjar verdeckt die Host-Kopie" — sie tut es nicht).
+2. **`setPriorityPackagePrefixes` ist hier nicht nur unnötig, sondern schädlich.** Die Kritikphase (Linse 3) hatte den Mechanismus als „von LuckPerms selbst gebaute Lösung" für die Sichtbarkeitsfrage vorgeschlagen. `MinestomLoader` setzt ihn nicht — und würde er es, ginge die Host-Sichtbarkeit der API kaputt. **Diese Empfehlung aus der Kritikphase ist damit widerlegt.**
+3. **Nebenbefund für Schritt 9:** `include(dependency('me.lucko.luckperms:.*'))` in `minestom/build.gradle` matcht auch `:api`, wodurch die 236 API-Klassen ein zweites Mal im jarinjar landen. Toter Ballast — nach der Gruppen-Korrektur (7.7.2) sollte der Filter so geschnitten werden, dass `:api` nicht mehr mitkommt.
+
+**Eine Funktionalität ist entfallen:** `anyLuckPermsCommand()` („darf mindestens ein `/lp`-Subcommand") braucht `CommandManager#hasPermissionForAny`, wofür Minestom keine öffentliche API bietet. `MinestomCommandExecutor` baut diese Condition jetzt intern selbst; im `BREAKING CHANGE`-Footer dokumentiert.
 
 **Nicht belegt:** Ein echter Client-Login. Der Testspieler kommt über `TestConnectionImpl` herein, das nur `AsyncPlayerConfigurationEvent` feuert, **nicht** `AsyncPlayerPreLoginEvent`. Der Pfad, der den User beim Login lädt (`MinestomConnectionListener.asyncPreLoginHandler`), ist damit ungetestet, ebenso die neue WARN-Zeile für `getIfLoaded() == null`. Das gehört in Schritt 8 — der Harness dafür existiert bereits.
 

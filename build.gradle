@@ -13,7 +13,10 @@ subprojects {
     apply plugin: 'dev.yumi.gradle.licenser'
 
     group = 'me.lucko.luckperms'
-    version = '5.6-SNAPSHOT'
+    // The single source of truth for the version. Release Please rewrites this
+    // line (and only this line) via the `generic` extra-files updater; see
+    // release-please-config.json. Do not bump it by hand.
+    version = '5.6.0' // x-release-please-version
 
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
@@ -34,19 +37,16 @@ subprojects {
         from '../LICENSE.txt'
     }
 
-    def determinePatchVersion = {
-        def tagInfo = providers.exec {
-            commandLine 'git', 'describe', '--tags'
-        }.standardOutput.asText.get().trim()
+    // Everything below is derived from the single `version` assignment above -
+    // nothing is read from the git history, so Release Please stays the only
+    // thing that ever decides what the version is.
+    def versionParts = project.version.toString().split('-')[0].split('\\.')
 
-        return tagInfo.contains('-') ? tagInfo.split('-')[1] : 0
-    }
-
-    project.ext.majorVersion = '5'
-    project.ext.minorVersion = '6'
-    project.ext.patchVersion = determinePatchVersion()
+    project.ext.majorVersion = versionParts[0]
+    project.ext.minorVersion = versionParts.length > 1 ? versionParts[1] : '0'
+    project.ext.patchVersion = versionParts.length > 2 ? versionParts[2] : '0'
     project.ext.apiVersion = project.ext.majorVersion + '.' + project.ext.minorVersion
-    project.ext.fullVersion = project.ext.apiVersion + '.' + project.ext.patchVersion
+    project.ext.fullVersion = project.version.toString()
 
     license {
         rule(rootProject.file("HEADER.txt"))

@@ -29,14 +29,6 @@ configurations {
     implementation.extendsFrom jarInJar
 }
 
-configurations {
-    shade
-    implementation.extendsFrom shade
-
-    jarInJar
-    implementation.extendsFrom jarInJar
-}
-
 dependencies {
     // https://modmuss50.me/fabric.html
     minecraft 'com.mojang:minecraft:26.1'
@@ -52,13 +44,15 @@ dependencies {
     ]
 
     apiModules.forEach {
-        implementation(fabricApi.module(it, '0.144.0+26.1'))
+        implementation(fabricApi.module(it, '0.149.0+26.1.2'))
     }
 
     jarInJar 'me.lucko:fabric-permissions-api:0.7.0'
+    implementation 'eu.pb4:placeholder-api:3.0.0+26.1'
 
     shade project(':common')
     shade project(':common:minecraft')
+    shade project(':common:placeholders')
 }
 
 loom.nestJars(tasks.named("shadowJar"), configurations.jarInJar)

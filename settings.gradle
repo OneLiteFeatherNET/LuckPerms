@@ -32,6 +32,10 @@ include (
         // The second, flat delivery artifact: same code as ':minestom:loader',
         // but shaded flat so a consumer can pull it into its own ShadowJar.
         'minestom:library',
+        // The third delivery artifact: the loader wrapped in a
+        // `net.onelitefeather:minestom-extensions` entrypoint, for servers that
+        // load extensions from an `extensions/` folder instead of main().
+        'minestom:extension',
         // Included for its test suite: standalone hosts the integration tests
         // that exercise ':common', so it is the only module that gives this
         // fork actual test coverage.

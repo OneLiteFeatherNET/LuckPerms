@@ -25,6 +25,7 @@
 
 package me.lucko.luckperms.minestom;
 
+import me.lucko.luckperms.common.loader.JarInJarClassLoader;
 import me.lucko.luckperms.common.loader.LoaderBootstrap;
 import me.lucko.luckperms.common.plugin.bootstrap.BootstrappedWithLoader;
 import me.lucko.luckperms.common.plugin.bootstrap.LuckPermsBootstrap;
@@ -69,7 +70,36 @@ public class LPMinestomBootstrap implements LuckPermsBootstrap, LoaderBootstrap,
         this.loader = loader;
         this.plugin = new LPMinestomPlugin(this);
         this.schedulerAdapter = new MinestomSchedulerAdapter(this);
-        this.classPathAppender = new JarInJarClassPathAppender(getClass().getClassLoader());
+        this.classPathAppender = createClassPathAppender(getClass().getClassLoader(), this.logger);
+    }
+
+    /**
+     * Creates a {@link ClassPathAppender} for the given class loader.
+     *
+     * <p>When LuckPerms is started through the JarInJar loader the regular
+     * {@link JarInJarClassPathAppender} is used. When it is shaded flat into a
+     * consumer's fat jar it runs under the app class loader instead - the
+     * JarInJar appender would throw {@link IllegalArgumentException} there, so a
+     * no-op appender is used.</p>
+     *
+     * <p><b>Invariant:</b> the no-op appender is only correct as long as
+     * LuckPerms does not have to download anything at runtime. Everything it
+     * needs must already be on the class path in that case, otherwise
+     * downloaded dependencies are silently discarded.</p>
+     */
+    private static ClassPathAppender createClassPathAppender(ClassLoader classLoader, PluginLogger logger) {
+        try {
+            if (classLoader instanceof JarInJarClassLoader) {
+                return new JarInJarClassPathAppender(classLoader);
+            }
+        } catch (LinkageError e) {
+            // loader-utils is not on the class path at all - definitely not JarInJar
+        }
+
+        logger.warn("LuckPerms is not running under a JarInJarClassLoader (" + classLoader.getClass().getName() +
+                "). Runtime dependency downloading is not available - every dependency must already be on the " +
+                "class path.");
+        return file -> {}; // ClassPathAppender is a functional interface
     }
 
     @Override

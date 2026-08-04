@@ -775,7 +775,25 @@ Konsequenzen für diesen Plan:
 - **Die Arbeit liegt nicht in diesem Repo.** `mycelium-bom` kommt im LuckPerms-Fork an keiner Stelle vor (verifiziert: keine Treffer in `*.gradle` / `*.kts` / `*.toml`). Die Änderung gehört nach `minestom-extensions` und muss dort released werden, bevor `minestom/extension` hier gebaut werden kann.
 - **Route (b) wird damit extern nutzbar** — bislang der stärkste Einwand gegen die Extension. Sie bleibt trotzdem das *zweite* Packaging über derselben Options-/Handle-API, nicht die Hauptroute: die verbleibenden Vorbehalte (1265 LOC, keine Tests, ein Release) sind von der BOM-Frage unabhängig.
 - **`DependencyGetter` bleibt eine JitPack-Koordinate** (`com.github.Minestom:DependencyGetter:v1.0.1`, HTTP 200). Sie ist auflösbar, aber JitPack ist keine Release-Infrastruktur mit Verfügbarkeitsgarantie. Wenn `minestom-extensions` ohnehin angefasst wird, gehört die Frage mit auf den Tisch — sie zieht den Shrinkwrap/Aether-Stack von 2019 nach.
-- **Neue Vorbedingung im Umsetzungsplan:** Der Schritt „`minestom/extension`" ist ab jetzt blockiert durch ein Release von `minestom-extensions` ohne `mycelium-bom`. Version dieses Releases festhalten, sobald bekannt.
+- ~~**Neue Vorbedingung im Umsetzungsplan:** Der Schritt „`minestom/extension`" ist blockiert durch ein Release von `minestom-extensions` ohne `mycelium-bom`.~~ **ERLEDIGT — `2.1.1` ist released und öffentlich auflösbar** (2026-08-04, PR #5 + Release-PR #6).
+
+> **Stand `net.onelitefeather:minestom-extensions:2.1.1`** — verifiziert über den öffentlichen Pfad `repo.onelitefeather.dev/releases`, ohne Credentials:
+>
+> | Artefakt | POM | JAR | Module |
+> |---|---|---|---|
+> | `minestom-extensions` | 200 | 200 | 200 |
+> | `minestom-extensions-processor` | 200 | 200 | 200 |
+> | `minestom-extensions-bom` | 200 | 404 *(korrekt, `java-platform`)* | 200 |
+>
+> `runtimeElements` enthält nur noch `maven-resolver-provider`, drei `maven-resolver`-Module und `slf4j-api` — sämtlich Maven Central. **Keine Mycelium-Spur mehr.**
+>
+> **Das Projekt hat sich dabei erheblich verändert** und die Analyse aus 7.1/2.4 ist in Teilen überholt:
+> - **Fünf Module statt einem:** Core, `-processor`, `-gradle-plugin`, `-maven-plugin` und ein eigenes `-bom`.
+> - **`DependencyGetter` ist ersetzt** durch Maven-Resolver/Aether. Der frühere Vorbehalt gegen die JitPack-Koordinate und den Shrinkwrap-Stack von 2019 ist damit gegenstandslos.
+> - **`extension.json` wird generiert**, nicht mehr von Hand geschrieben: `@ExtensionInfo` plus Annotation-Processor. Der Entrypoint ist immer die annotierte Klasse selbst, kann also nicht mehr auseinanderdriften — genau der Fehler, der den Fork mit `MinestomLoaderExtension` blockierte, ist strukturell ausgeschlossen.
+> - **Es gibt jetzt Tests** (54). Der Vorbehalt „1265 LOC, null Tests, ein Release" trifft nicht mehr zu.
+>
+> Damit ist die Extension-Route deutlich tragfähiger als bei der ursprünglichen Bewertung.
 - Die unter 7.1 offene Detailfrage, ob `compileOnly` ohne `transitive = false` den Fork-Build bricht, **entfällt damit weitgehend** — ohne credential-geschütztes BOM ist auch der Runtime-Classpath auflösbar. Der Wegwerf-Build zur Gegenprüfung bleibt trotzdem sinnvoll, aber er ist kein Blocker mehr.
 
 ### 7.3 Nachtrag: Was Upstream tatsächlich macht (O-2, O-3, O-4, O-6)

@@ -25,7 +25,45 @@
 
 package me.lucko.luckperms.minestom.app;
 
+import java.util.Objects;
+
+/**
+ * The single object LuckPerms' loader hands from the host to the platform code.
+ *
+ * <p>{@code JarInJarClassLoader#instantiatePlugin(String, Class, Object)} passes
+ * exactly one host object into the nested jar, and this is that slot. It is
+ * therefore also the only route host configuration takes to reach the platform:
+ * the {@link LuckPermsMinestomOptions} travel inside it.</p>
+ *
+ * <p>This class resolves from the host's class loader on both sides of the
+ * boundary (the JarInJar loader delegates parent-first), so the options instance
+ * the host built and the one the platform reads are the same object of the same
+ * class.</p>
+ */
 public final class LuckPermsApplication {
+
+    private final LuckPermsMinestomOptions options;
+
+    /**
+     * Creates an application with fully default options.
+     */
+    public LuckPermsApplication() {
+        this(LuckPermsMinestomOptions.defaults());
+    }
+
+    /**
+     * @param options the options the host configured
+     */
+    public LuckPermsApplication(LuckPermsMinestomOptions options) {
+        this.options = Objects.requireNonNull(options, "options");
+    }
+
+    /**
+     * @return the options this instance was created with
+     */
+    public LuckPermsMinestomOptions getOptions() {
+        return this.options;
+    }
 
     public String getVersion() {
         return "{{ version }}";

@@ -22,6 +22,10 @@ dependencies {
     // host at runtime and must never be bundled - hence compileOnly.
     compileOnly 'net.minestom:minestom:2026.07.22-26.2'
 
+    // LuckPermsMinestomOptions carries an slf4j Logger. Minestom itself requires
+    // slf4j, so the host always has it - bundling a second copy would be wrong.
+    compileOnly 'org.slf4j:slf4j-api:2.0.17'
+
     api('net.kyori:adventure-api:5.2.0') {
         exclude(module: 'adventure-bom')
         exclude(module: 'checker-qual')

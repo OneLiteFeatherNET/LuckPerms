@@ -88,6 +88,7 @@ def olfPublications = [
         ':minestom'       : ['minestom', 'LuckPerms Minestom'],
         ':minestom:app'   : ['minestom-app', 'LuckPerms Minestom App'],
         ':minestom:loader': ['minestom-loader', 'LuckPerms Minestom Loader'],
+        ':minestom:library': ['minestom-library', 'LuckPerms Minestom Library'],
 ]
 
 subprojects {

@@ -64,7 +64,16 @@ public class MinestomCommandExecutor extends CommandManager {
 
             // Minestom evaluates this both on execution and when computing
             // tab-complete visibility on connect.
-            setCondition(LuckPermsCommandConditions.anyLuckPermsCommand());
+            //
+            // This deliberately goes through the internal CommandManager rather
+            // than through the host-facing LuckPermsCommandConditions: "may use
+            // at least one /lp sub-command" has no representation in the public
+            // API, and this command is registered by the running plugin anyway,
+            // so there is nothing to resolve lazily.
+            setCondition((sender, commandString) -> {
+                Sender wrapped = this.commandExecutor.plugin.getSenderFactory().wrap(sender);
+                return this.commandExecutor.hasPermissionForAny(wrapped);
+            });
 
             final var params = ArgumentType.StringArray("params");
 

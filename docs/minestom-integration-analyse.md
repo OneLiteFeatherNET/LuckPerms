@@ -817,6 +817,22 @@ Upstream setzt im Root für **alle** Subprojekte ein niedriges Basis-Target und 
 
 Entscheidend ist die Metadata von Minestom selbst: `net.minestom:minestom:2026.05.17-1.21.11` deklariert `org.gradle.jvm.version=25` (verifiziert über `repo1.maven.org`, HTTP 200). Der Sprung auf 25 kam bei Minestom zwischen `2026.04.13-1.21.11` (jvm 21) und dieser Version.
 
+**Warum `common` im Fork auf 21 steht** (Upstream: geerbte 11) — die Kette ist zwingend und wurde nachgemessen:
+
+```
+adventure-api 4.21.0  ->  jvm.version=8    (Upstream-Stand)
+adventure-api 5.2.0   ->  jvm.version=21   <- die Untergrenze
+      |
+      v
+common (options.release = 21)
+      |
+      +--> standalone/**  muss >= 21 sein  (implementation project(':common'),
+      |                                     javac liest Class-Files v65 nicht unter release 17)
+      +--> minestom/**    steht auf 25     (Minestom verlangt 25, s.o.)
+```
+
+Die Anhebung von `standalone` auf 21 ist damit **keine unbegründete Verschärfung des Konsumenten-Minimums**, sondern eine Folge der Adventure-5-Migration. Wer sie rückgängig machen wollte, müsste bei Adventure ansetzen, nicht bei den Modulen.
+
 **Folge:** Der Befund „`org.gradle.jvm.version=25` sperrt Java-21-Konsumenten aus" ist zwar formal richtig, aber **gegenstandslos** — wer Minestom nutzt, ist ohnehin auf 25. `options.release = 25` für `minestom/**` ist exakt das Upstream-Muster (dieselbe Begründung wie bei `fabric`/`neoforge`). **Keine Absenkung, keine Änderung.** Dass `api` im Fork auf 8 und `common` auf 21 steht, folgt demselben Prinzip und bleibt so.
 
 #### 7.3.2 O-3 — Adventure: kein BOM ist der Upstream-Standard, aber der Skew ist echt

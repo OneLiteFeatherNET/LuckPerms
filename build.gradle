@@ -22,7 +22,7 @@ subprojects {
     // The single source of truth for the version. Release Please rewrites this
     // line (and only this line) via the `generic` extra-files updater; see
     // release-please-config.json. Do not bump it by hand.
-    version = '6.0.0' // x-release-please-version
+    version = '6.0.1' // x-release-please-version
 
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'

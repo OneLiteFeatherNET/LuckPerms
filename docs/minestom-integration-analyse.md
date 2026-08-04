@@ -1181,6 +1181,51 @@ Was außerhalb `minestom/` bleibt, in vier Gruppen: **Adventure-5-Migration** (`
 
 Damit ist **kein zurückrollbarer Merge-Müll mehr im Baum**. Jede verbleibende Abweichung ist ein bewusster Fork-Beitrag.
 
+### 7.8 Die Options-/Handle-API steht (Runde 3)
+
+Das Kernstück aus 7.4 ist umgesetzt. Beide Auslieferungswege haben jetzt **symmetrische Einstiegspunkte**, die dasselbe Handle liefern:
+
+| Route | Einstieg | Modul |
+|---|---|---|
+| JarInJar (Loader, Extension) | `MinestomLoader.create(options)` | `minestom/loader` |
+| flach (Library) | `LuckPermsMinestom.create(options)` / `.builder()` | `minestom/src` |
+
+Im Kontraktmodul `minestom/app` — und damit host-sichtbar (per `unzip -l` im äußeren Loader-Jar bestätigt): `LuckPermsMinestomOptions` (+ `Builder`), `DependencyMode`, `LuckPermsMinestomHandle extends AutoCloseable`, `LuckPermsMinestomInstanceLock`.
+
+**Datenverzeichnis** — Vorrang: Builder > `luckperms.data-dir` > `LUCKPERMS_DATA_DIR` > `data`. Die Options führen zusätzlich `dataDirectoryOrigin()`, damit die Startup-Diagnose sagen kann, *warum* der Pfad so gewählt wurde. Damit ist der Risikopunkt „Datenverzeichnis nur per Code, nicht per Konfiguration" erledigt.
+
+**Belegt** (zwei Harnesses, echter Minestom-`2026.07.22-26.2`-Server): **28/28** auf der JarInJar-Route, **9/9** auf der flachen Route. Darunter: Start mit anderem Datenverzeichnis (`./data` entsteht nachweislich *nicht*), Permission-Check end-to-end, `handleDisconnect` läuft wirklich (transiente Nodes werden geleert), Zweitinstanz wird abgelehnt, und `close()` räumt vollständig auf — Commands weg, Event-Node abgehängt, API-Provider deregistriert, Lock frei, idempotent, **und der Host-eigene Command überlebt**. `:standalone:test` bleibt bei 33/33.
+
+**Eine begründete Abweichung von der Vorgabe.** Die Invariante „No-Op-Appender + `DOWNLOAD`" sollte laut Plan der Builder ablehnen. Das geht nicht: `Builder.build()` läuft im Kontraktmodul und kann den tatsächlichen Classloader nicht kennen. Die Prüfung sitzt deshalb in `LPMinestomBootstrap`s Konstruktor — also in `create(options)`, dem gemeinsamen Konstruktionseinstieg beider Routen, und damit weiterhin vor jedem Nebeneffekt. `JAR_IN_JAR` wird gleich mit abgelehnt, da es denselben Appender braucht.
+
+#### Neuer Befund: `minestom/library` muss `:common:loader-utils` bundeln
+
+`LPMinestomBootstrap implements LoaderBootstrap` — ein Interface aus `common:loader-utils`, das in `minestom/build.gradle` `compileOnly` ist. Nachgeprüft an den gebauten Artefakten:
+
+```
+LuckPerms-Minestom-5.6.0.jar (aussen)   ->  4 Klassen unter common/loader/  (JarInJarClassLoader,
+                                            LoaderBootstrap, LoadingException)
+luckperms-minestom.jarinjar (innen)     ->  0 Klassen unter common/loader/
+```
+
+Auf der JarInJar-Route ist das korrekt, weil der äußere Loader das Interface liefert. Auf der flachen Route gibt es keinen äußeren Loader — ohne `:common:loader-utils` im Fat-Jar scheitert schon das Linken der Bootstrap-Klasse mit `NoClassDefFoundError: me/lucko/luckperms/common/loader/LoaderBootstrap`, **vor** jedem Konstruktorcode. Schritt 7 listet das Modul zwar auf, aber ohne diese Begründung — es ist keine Option, sondern Voraussetzung.
+
+#### Offene Entscheidung: `getGlobalDependencies()`
+
+Weiterhin hartkodiert (W-10) und **bewusst nicht** auf `super.getGlobalDependencies()` umgestellt: super enthält `Dependency.ADVENTURE`, und ein zur Laufzeit nachgeladenes Adventure 4.x neben Minestoms 5.2.0 wäre eine echte Regression. Das braucht eine eigene Entscheidung, keine stille Angleichung.
+
+#### Korrekturen am Dokument
+
+Aus der Umsetzung, jeweils am Code geprüft:
+
+| Angabe | Richtig |
+|---|---|
+| `LPMinestomBootstrap.java:150-151` (Hardcode `data`) | **:180-182** |
+| `MinestomConnectionListener.java:50-53` | **:49-54** |
+| „`minestom/app` hat keine Minestom-Dependency" | überholt — seit `3af45d159` `compileOnly`, sonst ginge `LuckPermsCommandConditions` dort nicht |
+| `minestom/app/build.gradle:19-49`, Adventure 5.1.1 | ab Zeile 24, Version längst 5.2.0 |
+| `AbstractLuckPermsPlugin.java:244 / :340 / :377` | alle drei **exakt korrekt** |
+
 ### Risiken bei der Umsetzung
 
 - **Guava-Relocation kann eine API-Grenze brechen.** `common/build.gradle:90` excludet Guava explizit aus `net.kyori:event-api` — das deutet auf früheren Ärger hin. Vor dem Merge mit einem echten Konsumenten-Smoke-Test verifizieren; Fallback ist ein Bump auf modernes Guava als deklarierte Dependency (Muster: `standalone/app/build.gradle:18` nutzt 33.4.8-jre).

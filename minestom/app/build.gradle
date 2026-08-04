@@ -17,6 +17,12 @@ tasks.withType(JavaCompile).configureEach {
 dependencies {
     implementation project(':api')
 
+    // This module is the contract layer: it is on the host's application class
+    // loader, so host-facing helpers such as LuckPermsCommandConditions have to
+    // live here. They speak Minestom types, but Minestom is provided by the
+    // host at runtime and must never be bundled - hence compileOnly.
+    compileOnly 'net.minestom:minestom:2026.07.22-26.2'
+
     api('net.kyori:adventure-api:5.2.0') {
         exclude(module: 'adventure-bom')
         exclude(module: 'checker-qual')

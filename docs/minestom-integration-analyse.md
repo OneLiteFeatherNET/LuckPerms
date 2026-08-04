@@ -1260,6 +1260,26 @@ Bewusst **nicht** reloziert, jeweils weil `Dependency.java` dort keine Regel hat
 
 Die 192 API-Klassen liegen weiterhin genau einmal flach im äußeren Loader.
 
+#### Nachtrag: W-7 ist offen — neun Ressourcen im Jar-Wurzelverzeichnis
+
+Die Wirkungsliste in Abschnitt 6 führte „`config.yml` unter `luckperms/` → keine Kollision beim Shading (W-7)" als erledigt. **Das ist nicht umgesetzt**, und das Problem ist breiter als nur `config.yml`. Im gebauten `minestom-library-5.6.0.jar` liegen neun Ressourcen im Wurzelverzeichnis:
+
+```
+config.yml                       33 116 B   (LuckPerms selbst)
+luckperms_en.properties
+version.properties               <- generisch, hohe Kollisionsgefahr
+driver.properties                <- generisch
+deprecated.properties
+mariadb.properties
+rabbitmq-amqp-client.properties
+sqlite-jdbc.properties
+LICENSE.txt
+```
+
+Sieben davon stammen aus den gebundelten Storage-Treibern und kommen erst durch das flache Packaging hinzu. Shaded ein Konsument dieses Artefakt und bringt selbst eine `config.yml` oder `version.properties` mit, überschreibt eine die andere — stillschweigend.
+
+**Warum es offen blieb:** `getResourceStream` sucht `config.yml` per Klassenlader-Ressource genau im Wurzelverzeichnis. Ein Umzug nach `luckperms/` bräuchte deshalb auch eine Änderung in `common/` — genau das, was der Plan minimieren will. Die Entscheidung steht noch aus; bis dahin ist es im Konsumenten-README als bekannte Grenze dokumentiert.
+
 #### Zwei Grenzen, die ein flaches Jar nicht überwinden kann
 
 - **H2-1.x-Migration.** `MigrateH2ToVersion2` lädt `H2_DRIVER_LEGACY` (1.4.199) über einen *zweiten* Isolated-ClassLoader. Beide Versionen lägen unreloziert unter `org.h2` — nur eine passt ins flache Jar, und das muss 2.1.214 sein. **Konsumenten mit einer H2-Datei aus LuckPerms < 5.4 müssen einmal über das Loader-Artefakt migrieren.**

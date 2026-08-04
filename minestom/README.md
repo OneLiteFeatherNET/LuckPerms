@@ -58,7 +58,7 @@ java {
 
 repositories {
     mavenCentral()
-    maven("https://repo.onelitefeather.dev/onelitefeather-releases")
+    maven("https://repo.onelitefeather.dev/releases")
 }
 
 dependencies {
@@ -145,7 +145,7 @@ java {
 
 repositories {
     mavenCentral()
-    maven("https://repo.onelitefeather.dev/onelitefeather-releases")
+    maven("https://repo.onelitefeather.dev/releases")
 }
 
 dependencies {
@@ -286,7 +286,7 @@ Two more things worth knowing while migrating:
   deregistered, and on the loader route the nested class loader is closed. It is idempotent and never
   throws for a handle that was never enabled.
 - **The published coordinates move from a snapshot to a release repository.** `5.6-SNAPSHOT`
-  consumers must switch to `https://repo.onelitefeather.dev/onelitefeather-releases`.
+  consumers must switch to `https://repo.onelitefeather.dev/releases`.
 
 ## Permission checks
 

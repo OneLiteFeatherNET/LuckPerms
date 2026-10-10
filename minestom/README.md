@@ -62,7 +62,7 @@ repositories {
 }
 
 dependencies {
-    implementation("net.minestom:minestom:2026.07.22-26.2")
+    implementation("net.minestom:minestom:2026.10.07-26.2")
 
     // One self-contained jar. Its POM declares no dependencies at all, so there
     // is nothing to exclude - no Adventure clash, no gson clash, no stale Guava.
@@ -149,7 +149,7 @@ repositories {
 }
 
 dependencies {
-    implementation("net.minestom:minestom:2026.07.22-26.2")
+    implementation("net.minestom:minestom:2026.10.07-26.2")
 
     // ~40 MiB, every storage backend and messaging service already shaded and
     // relocated under me.lucko.luckperms.lib.*. Its POM declares no dependencies,

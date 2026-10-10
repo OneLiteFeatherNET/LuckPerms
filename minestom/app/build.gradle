@@ -20,7 +20,7 @@ dependencies {
     // loader, so host-facing helpers such as LuckPermsCommandConditions have to
     // live here. They speak Minestom types, but Minestom is provided by the
     // host at runtime and must never be bundled - hence compileOnly.
-    compileOnly 'net.minestom:minestom:2026.07.22-26.2'
+    compileOnly 'net.minestom:minestom:2026.10.07-26.2'
 
     // LuckPermsMinestomOptions carries an slf4j Logger. Minestom itself requires
     // slf4j, so the host always has it - bundling a second copy would be wrong.

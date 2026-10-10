@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.0.2](https://github.com/OneLiteFeatherNET/LuckPerms/compare/v6.0.1...v6.0.2) (2026-10-10)
+
+
+### Bug Fixes
+
+* **minestom:** compile against minestom 2026.10.07-26.2 ([#8](https://github.com/OneLiteFeatherNET/LuckPerms/issues/8)) ([3eaa7a9](https://github.com/OneLiteFeatherNET/LuckPerms/commit/3eaa7a9d96ffcdb69d0fac7ee96306328820cd5e))
+
 ## [6.0.1](https://github.com/OneLiteFeatherNET/LuckPerms/compare/v6.0.0...v6.0.1) (2026-08-04)
 
 

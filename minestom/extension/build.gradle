@@ -32,7 +32,7 @@ dependencies {
     // `apiElements` variant declares no dependencies at all (the maven-resolver
     // stack is `implementation`), so this pulls exactly one jar.
     compileOnly "net.onelitefeather:minestom-extensions:${minestomExtensionsVersion}"
-    compileOnly 'net.minestom:minestom:2026.07.22-26.2'
+    compileOnly 'net.minestom:minestom:2026.10.07-26.2'
     // Extension#getLogger() returns an Adventure ComponentLogger whose info(...)
     // is inherited from org.slf4j.Logger - without slf4j on the compile class
     // path javac reports "cannot access Logger".
